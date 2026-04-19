@@ -1,0 +1,98 @@
+---
+title: "Project Proposal"
+author: "The Bayes Estimator Collaborative"
+date: "2026-03-13"
+output: pdf_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+
+## Who are the Bayes Estimator Collaborative?
+
+The Bayes Estimator Collaborative was founded on March 9th, 2026, and is composed of Josh, Senuri, Nicole, Turner, Bernard, Sajini, Lauren, and Eric. 
+
+```{r echo=FALSE, fig.cap="Bayes Estimator Collaborative Logo", out.width="40%", fig.align="center"}
+knitr::include_graphics("logo.png")
+```
+
+
+## Division of Responsibilities within The Bayes Estimator Collaborative
+
+In the development of the Bayes Estimator Collaborative, eight first-year master's statistics students at Montana State University joined together to expand their knowledge of Bayes Estimators. Nicole and Bernard lead the theoretical base, focusing on literature review, defining key definitions, and exploring the history of Bayes Estimators. Sajini and Lauren are responsible for selecting the model and making a choice for priors, analytically finding estimators, and comparing them to other estimation methods. Josh, Turner, and Eric handle the computational design by running simulation studies on the chosen model, and applying Markov Chain Monte Carlo to obtain posterior draws to test the estimator. Senuri acts as an interpreter and will assess the quality of the estimators with assistance from Bernard. At the end discussion, all eight members of the Bayes Estimator Collaborative will discuss and summarize findings. Organizationally, Nicole manages timeliness and organization of paper, Turner and Josh bring pure energy to the collaborative as well as assist Bernard with checking the quality and correctness of responses and computations, Lauren and Eric will organize the LaTeX report, and Senuri and Sajini serve as editors. Additionally, we intend to use GitHub for version management, where Eric intends to teach the Bayes Estimator Collaborative how to use github.
+
+## Literature Review
+
+### Theory of Bayes Estimators 
+
+We will define the overall idea of Bayesian inference, and how the estimators can be calculated.
+
+We will define a Bayes Estimator (what’s a loss function to be able to explain the bayes estimator minimize of the posterior expected loss) Casella & Berger 7.2.3.
+
+
+### History of Bayesian Estimators (A brief history of Bayes himself, and his contributions)
+
+Thomas Bayes was born in 1701 to a family of cutlers, and heavily rebelled by becoming a presbyterian minister and statistician. He attended the University of Edinburgh, where he studied divinity, with a hint of mathematics. 
+
+### How does this compare to the frequentist estimators?
+
+We are going to look into the difference between frequentist estimators and Bayesian estimators.
+
+
+### Current Applications of Bayesian Estimators
+
+To Bayes or not to Bayes? We will explore some modern applications of Bayesian estimation, as well as how to tell when using Bayesian estimation would be applicable. 
+
+## Analytical Modeling and Estimator Derivation
+
+The methodological framework of this project centers on the methodological selection and analytically derivation of Bayesian estimators. To provide a comprehensive comparison, the project will evaluate two distinct models: a Student’s t-distribution to explore the complexities of estimating degrees of freedom, and a Binomial-Beta conjugate pair to demonstrate classic Bayesian utility. For each model, appropriate prior distributions will be selected to reflect varying levels of pre-existing information. The core of this phase involves analytically finding the posterior distributions and deriving the resulting Bayes estimators under specific loss functions. These estimators will then be formally contrasted with frequentist alternatives, specifically Maximum Likelihood Estimators (MLE) and Method of Moments (MOM), to establish a theoretical baseline for the subsequent computational simulations.
+
+## Code and Computation 
+
+### Simulation studies on the results of the model and prior(s) previously chosen
+
+Simulation studies and real data sets could be used.  We will use these to check the effects of different priors on the result of the model.  These will be compared to maximum likelihood estimators to see which may result in a better fit in different situations.  For example, in a case where an informative prior can cover information that isn’t clear in the data could make a Bayes model perform better than an MLE.  This part will primarily be to compare analytic Bayes estimators to MLEs, so those resulting from Markov Chain Monte Carlo (ex: normal models) won’t be used until later.
+
+### Conduct MCMC to get posterior draws
+
+We will use MCMC (Gibbs Sampler) and or the MH algorithm to take posterior draws from our distribution of choice. We will also evaluate MCMC chain convergence and compare Bayes estimates of degrees of freedom to the estimates obtained from utilizing the EM algorithm as there does not exist a closed form solution to the MLE estimates for a Student’s-t distribution. We can compare differences in MCMC chain convergence and estimators depending on how strong our priors are.
+
+To illustrate the Metropolis-Hastings algorithm for Monte Carlo Markov Chains: 
+
+```{r echo=FALSE, fig.cap="Graphical representation of the Metropolis-Hastings algorithm for Monte Carlo Markov Chains", out.width="40%", fig.align="center"}
+
+knitr::include_graphics("MH_project.png")
+```
+
+
+## Interpretation of estimators
+
+### Evalulating these Statistical Estimators
+
+Point estimation aims to find estimators and then to evaluate these estimator for their quality. This follows that the interpretation phase of this project serves as the essential link between computational output and statistical inference. Once the simulation studies and MCMC draws are complete, the Collaborative will assess the quality of the Bayes estimators by evaluating performance metrics such as bias, variance, and Mean Squared Error (MSE). These metrics will be compared across various scenarios to determine the impact of different prior distributions, specifically identifying where an informative prior provides a dominant estimator versus where a poorly specified prior may hinder model performance. Through the use of comparative plots and tables, the team will interpret the trade-offs between Bayesian methods and frequentist alternatives (MLE and MOM). This analysis will culminate in a synthesis of the raw analytic results, providing a clear narrative on the practical applicability of the Student t-distribution and Binomial models in modern Bayesian contexts.
+
+### Visual Assessments
+
+To support assessing the quality of these estimators, several plots using ggplot will be used to visually display results and aid in interpretation. 
+
+## Discussion 
+
+At the end, we will discuss what we learned as the Bayes Estimator Collaborative, and write a summarizing write-up together as a Collaborative. 
+
+## References 
+
+Bellhouse, D. R. (n.d.). The Reverend Thomas Bayes (1701?–1761): A biography. Georgia Institute of Technology. https://www2.isye.gatech.edu/isyebayes/bank/bayesbiog.pdf
+
+Casella, G., & Berger, R. L. (2002). Statistical inference (2nd ed.). Duxbury/Thomson Learning 
+
+Fornacon-Wood, Isabella et al. Understanding the Differences Between Bayesian and Frequentist Statistics International Journal of Radiation Oncology, Biology, Physics, Volume 112, Issue 5, 1076 - 108 https://www.redjournal.org/article/S0360-3016(21)03256-9/fulltext 
+
+Haddad, K. (2025). A Comprehensive Review and Application of Bayesian Methods in Hydrological Modelling: Past, Present, and Future Directions. Water, 17(7), 1095. https://doi.org/10.3390/w17071095 
+
+OpenAI. (2026). Bayes estimator collaborative logo with Bayesian goose vs frequentist goose boxing [AI-generated image]. ChatGPT (DALLE-E image generator).
+
+Rupp, A. A., Dey, D. K., & Zumbo, B. D. (2004). To Bayes or Not to Bayes, From Whether to When: Applications of Bayesian Methodology to Modeling. Structural Equation Modeling: A Multidisciplinary Journal, 11(3), 424–451. https://doi.org/10.1207/s15328007sem1103_7 
+
+Singh, S. (2023, July 23). Solving substitution ciphers using Markov Chain Monte Carlo (MCMC). https://shreyansh26.github.io/post/2023-07-22_solving_substitution_cipher_using_mcmc/
