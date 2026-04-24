@@ -1,0 +1,110 @@
+---
+title: "Bayesian Credible Intervals vs Frequentist Confidence Intervals"
+author: "Sajini Rajapaksha"
+date: "`r Sys.Date()`"
+output: word_document
+---
+
+```{r setup, include=FALSE}
+
+knitr::opts_chunk$set(message = FALSE,
+                      warning = FALSE)
+options(show.signif.stars = FALSE)
+
+```
+
+
+
+Introduction
+
+Interval estimation is a fundamental tool in statistical inference, used to quantify uncertainty about unknown parameters. Both frequentist and Bayesian frameworks provide interval based approaches confidence intervals and credible intervals, respectively. While these intervals may appear numerically similar in certain cases, they arise from fundamentally different interpretations of probability and uncertainty. 
+
+Frequentist Confidence Interval
+
+In the frequentist framework, the parameter of interest is treated as a fixed but unknown quantity, while the data are considered random. A confidence interval is constructed such that, over repeated sampling, a specified proportion of these intervals will contain the true parameter value.
+
+Consider a sample
+
+$$X_1, X_2, ...X_n \sim N(\mu, \sigma^2)$$
+
+where $\sigma^2$ is known. The sample mean follows the distribution
+
+$$\bar{X} \sim N(\mu,\frac{\sigma^2}{n}) $$
+
+A $100(1-\alpha)\%$ confidence interval for μ is given by
+
+$$\bar{X} \pm z_{\alpha/2} \frac{\sigma}{\sqrt{n}} $$
+
+This interval is random because it depends on the observed sample. The correct interpretation is that if we were to repeat the sampling process many times, approximately $100(1-\alpha)\%$ of the constructed intervals would contain the true value of μ. Importantly, this does not imply that there is a probability that μ lies within any single computed interval.
+
+
+
+Bayesian Credible Interval
+
+
+Bayesian framework treats the parameter as a random variable and incorporates prior beliefs about its possible values. These beliefs are updated using observed data through Bayes’ theorem to obtain the posterior distribution.
+
+Assume a prior distribution for μ:
+
+$$\mu \sim N(\mu_0, \tau^2)$$
+
+Combining this prior with the likelihood from the observed data yields the posterior distribution
+
+$$\mu \mid x \sim N(\mu_n, \sigma_n^2),
+\quad$$
+
+
+where
+
+$$\quad
+\sigma_n^2 = \left(\frac{n}{\sigma^2} + \frac{1}{\tau^2}\right)^{-1},
+\quad
+\mu_n = \sigma_n^2 \left( \frac{n \bar{X}}{\sigma^2} + \frac{\mu_0}{\tau^2} \right)$$
+
+
+A $100(1-\alpha)\%$ credible interval for μ is given by
+
+$$\mu_n \pm z_{\alpha/2} \sqrt{\sigma_n^2}$$
+
+Unlike the confidence interval, this interval has a direct probabilistic interpretation. Given the observed data, there is a $100(1-\alpha)\%$ probability that the parameter μ lies within this interval.
+
+
+
+
+Comparison 
+
+The key distinction between the two approaches lies in how probability is interpreted:
+
+Frequentist confidence interval:
+The parameter is fixed, and the interval is random. Probability refers to long-run frequency properties across repeated samples.
+
+Bayesian credible interval:
+The data are fixed, and the parameter is treated as random. Probability reflects a degree of belief about the parameter after observing the data.
+
+When non-informative priors are used, Bayesian credible intervals often closely resemble frequentist confidence intervals. However, when informative priors are introduced particularly in small sample settings the Bayesian interval can differ significantly by incorporating prior knowledge into the estimation process.
+
+Another key difference concerns coverage. Confidence intervals are constructed to guarantee coverage probability in repeated sampling, whereas credible intervals do not necessarily maintain this property from a frequentist perspective.
+
+
+Conclusion
+
+Although confidence intervals and credible intervals may appear similar in form, they represent fundamentally different approaches to statistical inference. Confidence intervals provide guarantees based on repeated sampling, while credible intervals offer a direct probabilistic statement about the parameter given the observed data. The choice between these methods ultimately depends on the philosophical perspective adopted and whether prior information is incorporated into the analysis.
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
