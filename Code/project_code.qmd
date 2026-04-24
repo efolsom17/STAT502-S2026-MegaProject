@@ -1,0 +1,168 @@
+---
+title: "MCMC Code for sampling from posterior t distribution"
+author: "Eric Folsom"
+format: pdf
+---
+
+```{r}
+#| label: setup
+#| echo: true
+#| warning: false
+library(tidyverse)
+library(brms)
+library(janitor)
+set.seed(502)
+```
+
+We are trying to create a posterior distribution for the degrees of freedom from a $t$ distribution. We can set up our model as follows:
+
+Our likelihood, or sampling distribution is:
+
+$$
+p(y_i | t) \sim t(\nu)
+$$
+
+
+For our prior we have a couple of choices:
+$$
+p(\nu) \sim \text{Some strictly positive distribution}
+$$
+
+For our prior for $\nu$ we will try the following:
+
+$$
+p(\nu) \sim \text{Uniform}(0,\theta) \text{with various choices of } \theta
+$$
+
+$$
+p(\nu)\sim N^+(0,\sigma^2) \quad \text{with various choices of } \sigma^2
+$$
+
+$$
+p(\nu)\sim \text{Gamma}(\alpha, \beta) \text{with various choices of } \alpha \text{ and } \beta
+$$
+
+$$
+p(\nu)\sim \text{Cauchy}^+() 
+$$
+
+Thus our model for our posterior, $P(\nu | y_i)$ will be 
+
+$$
+P(\nu|y_i)\propto p(\mathbf{y} | \nu) p(\nu)
+$$
+
+
+We can generate data from $t$-distributions with various degrees of freedom ($\nu$) as follows:
+
+```{r}
+#| label: example_data
+#| echo: true
+#| warning: false
+sim_dat <- function(nsims, nu) {
+  cols <- nu |>
+    map(function(nu) {
+      rt(nsims, nu)
+    })
+
+  names(cols) <- paste0("nu_", nu)
+
+  data <- as.data.frame(cols) |> mutate(mu0 = rep(0, nsims))
+
+  return(data)
+}
+nu <- sample(c(2:25), 5, replace = F)
+n <- 10000
+dat <- sim_dat(n, nu)
+```
+
+With our simulated data, with $\nu$'s of $2,3,\ldots, 25$ we can create posterior distributions as follows:
+
+```{r}
+#| label: posterior_estimates_test
+#| echo: true
+#| warning: false
+
+
+
+fit1 <- brm(
+  nu_8 ~ 1,
+  data = dat,
+  family = student(),
+  prior = c(
+    prior(uniform(1, 10), class = "nu", lb = 1, ub = 10),
+    prior(exponential(1), class = "sigma")
+  ),
+  warmup = 1000,
+  iter = 4000,
+  chains = 4
+)
+
+post_nu1 <- as_draws_df(fit1)$nu
+plot(fit1)$nu
+mean(post_nu1)
+
+summary(fit1)
+```
+
+```{r}
+#| label: posterior_draws_unif(1_50)
+#| echo: true
+#| warning: false
+
+
+
+nu_to_try <- names(dat)
+
+ 
+fits_uniform_prior <- dat |> map(function(x){
+    
+    temp_data <- data.frame(y = x)
+
+    brm(
+    y ~ 1,
+    data = temp_data,
+    family = student(),
+    prior = c(
+        prior(uniform(1, 50), class = "nu", lb = 1, ub = 50),
+        prior(exponential(1), class = "sigma")
+    ),
+    warmup = 1000,
+    iter = 4000,
+    chains = 4
+    )
+
+}
+ )
+```
+
+```{r}
+#| label: posterior_draws_gamma
+#| echo: true
+#| warning: false
+
+
+
+nu_to_try <- names(dat)
+
+ 
+fits_gamma_prior <- dat |> map(function(x){
+    
+    temp_data <- data.frame(y = x)
+
+    brm(
+    y ~ 1,
+    data = temp_data,
+    family = student(),
+    prior = c(
+        prior(uniform(1, 50), class = "nu", lb = 1, ub = 50),
+        prior(exponential(1), class = "sigma")
+    ),
+    warmup = 1000,
+    iter = 4000,
+    chains = 4
+    )
+
+}
+ )
+```
