@@ -1,0 +1,104 @@
+---
+title: "ClosedForm"
+format: html
+---
+
+```{r}
+library(catstats2)
+library(tidyverse)
+library(ggplot2)
+```
+
+Load in the data
+
+```{r}
+data(snowdepths)
+
+snowdepths$presence <- "Y"
+snowdepths$presence[snowdepths$snow == 0] <- "N"
+
+n.presence <- snowdepths |>
+  subset(presence == "Y") |>
+  tally()
+
+n.presence <- n.presence$n
+
+n.total <- length(snowdepths$presence)
+```
+
+Make beta pdfs
+
+```{r}
+bseq <- seq(0, 1, length.out = 500)
+
+bdf <- data.frame(bseq = bseq)
+
+#UNINFORMATIVE
+bdf$up <- dbeta(bdf$bseq, shape1 = 1, shape2 = 1)
+bdf$uninform <- dbeta(bdf$bseq, shape1 = 1 + n.presence, shape2 = 1 + n.total - n.presence)
+
+#I think there'll be some snow this year
+bdf$lp <- dbeta(bdf$bseq, shape1 = 30, shape2 = 15)
+bdf$lsnow <- dbeta(bdf$bseq, shape1 = 8 + n.presence, shape2 = 4 + n.total - n.presence)
+
+#I REALLY think there'll be some snow this year
+bdf$slp <- dbeta(bdf$bseq, shape1 = 300, shape2 = 150)
+bdf$slsnow <- dbeta(bdf$bseq, shape1 = 300 + n.presence, shape2 = 150 + n.total - n.presence)
+
+#I think there'll be less snow this year
+bdf$vlp <- dbeta(bdf$bseq, shape1 = 4, shape2 = 90)
+bdf$vlsnow <- dbeta(bdf$bseq, shape1 = 4 + n.presence, shape2 = 90 + n.total - n.presence)
+
+#I REALLY think there'll be almost no snow this year
+bdf$sp <- dbeta(bdf$bseq, shape1 = 2, shape2 = 300)
+bdf$ssnow <- dbeta(bdf$bseq, shape1 = 2 + n.presence, shape2 = 300 + n.total - n.presence)
+```
+
+First: plot priors
+
+```{r}
+bdf |>
+  ggplot() +
+  geom_line(aes(x = bseq, y = up, col = "1"), lwd = 1) +
+  geom_line(aes(x = bseq, y = lp, col = "2"), lwd = 1) +
+  geom_line(aes(x = bseq, y = slp, col = "3"), lwd = 1) +
+  geom_line(aes(x = bseq, y = vlp, col = "4"), lwd = 1) +
+  geom_line(aes(x = bseq, y = sp, col = "5"), lwd = 1) +
+  scale_color_manual(name = "Prior Type",
+                     values = c("1" = "red", "2" = "orange",
+                                "3" = "green", "4" = "blue",
+                                "5" = "purple"),
+                     labels = c("1" = "Uninformative",
+                                "2" = "Some Snow (Semi Informative)",
+                                "3" = "Some Snow (Informative)",
+                                "4" = "No Snow (Informative)",
+                                "5" = "No Snow (Strongly Informative)")) +
+  labs(x = "Possible Theta Values",
+       y = "Density",
+       title = "Used Prior Distributions")
+```
+
+PLOT!!!!!!
+
+```{r}
+bdf |>
+  ggplot() +
+  geom_line(aes(x = bseq, y = uninform, col = "1"), lwd = 1) +
+  geom_line(aes(x = bseq, y = lsnow, col = "2"), lwd = 1) +
+  geom_line(aes(x = bseq, y = slsnow, col = "3"), lwd = 1) +
+  geom_line(aes(x = bseq, y = vlsnow, col = "4"), lwd = 1) +
+  geom_line(aes(x = bseq, y = ssnow, col = "5"), lwd = 1) +
+  scale_color_manual(name = "Prior Type",
+                     values = c("1" = "red", "2" = "orange",
+                                "3" = "green", "4" = "blue",
+                                "5" = "purple"),
+                     labels = c("1" = "Uninformative",
+                                "2" = "Some Snow (Semi Informative)",
+                                "3" = "Some Snow (Informative)",
+                                "4" = "No Snow (Informative)",
+                                "5" = "No Snow (Strongly Informative)")) +
+  labs(x = "Possible Theta Values",
+       y = "Density",
+       title = "Posterior Distributions for Theta")
+```
+
