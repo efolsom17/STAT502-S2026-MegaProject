@@ -1,0 +1,2613 @@
+---
+title: "MCMC Code for sampling from posterior t distribution"
+author: "Eric Folsom"
+format: pdf
+---
+
+```{r}
+#| label: setup
+#| echo: false
+#| warning: false
+library(tidyverse)
+library(brms)
+library(janitor)
+library(patchwork)
+set.seed(502)
+```
+
+We are trying to create a posterior distribution for the degrees of freedom from a $t$ distribution. We can set up our model as follows:
+
+Our likelihood, or sampling distribution is:
+
+$$
+p(y_i | t) \sim t(\nu)
+$$
+
+
+For our prior we have a couple of choices:
+$$
+p(\nu) \sim \text{Some strictly positive distribution}
+$$
+
+For our prior for $\nu$ we will try the following:
+
+$$
+p(\nu) \sim \text{Uniform}(1,50)
+$$
+
+$$
+p(\nu)\sim \text{Gamma}(1, 4)
+$$
+
+$$
+p(\nu)\sim \text{Gamma}(1.5, 5)
+$$
+
+$$
+p(\nu)\sim \text{Gamma}(2, 5)
+$$
+
+
+$$
+p(\nu)\sim N^+(0,5^2)
+$$
+
+$$
+p(\nu)\sim N^+(0,10^2)
+$$
+
+$$
+p(\nu)\sim \text{Cauchy}^+(0,5)
+$$
+
+Thus our model for our posterior, $P(\nu | y_i)$ will be 
+
+$$
+P(\nu|y_i)\propto p(\mathbf{y} | \nu) p(\nu)
+$$
+
+
+We can generate data from $t$-distributions with various degrees of freedom ($\nu$) as follows:
+
+```{r}
+#| label: simulate_data
+#| echo: true
+#| warning: false
+#| eval: false
+# function to simulate data from a t-distribution
+
+set.seed(502)
+sim_dat <- function(nsims, nu) {
+  cols <- nu |>
+    map(function(nu) {
+      rt(nsims, nu)
+    })
+
+  names(cols) <- paste0("nu_", nu)
+
+  data <- as.data.frame(cols)
+
+  return(data)
+}
+
+# select 6 different values of nu from 2-25 to simulate data from
+nu <- sample(c(2:25), 6, replace = F) |> sort()
+dat_10000 <- sim_dat(10000, nu) # simulate the data
+dat_1000 <- sim_dat(1000, nu) # simulate the data
+dat_100 <- sim_dat(100, nu) # simulate the data
+```
+
+We can define our priors as follows:
+
+```{r}
+#| label: setup_mcmc
+#| echo: true
+#| eval: false
+#| warning: false
+
+prior_uniform_1_50 <- prior(uniform(1, 50), class = "nu", lb = 1, ub = 50)
+prior_gamma_1_4 <- prior(gamma(1, 4), class = "nu")
+prior_gamma_15_5 <- prior(gamma(1.5, 5), class = "nu")
+prior_gamma_2_5 <- prior(gamma(2, 5), class = "nu")
+prior_half_normal_5 <- prior(normal(0, 5), class = "nu", lb = 0)
+prior_half_normal_10 <- prior(normal(0, 10), class = "nu", lb = 0)
+prior_half_cauchy <- prior(cauchy(0, 5), class = "nu", lb = 0)
+```
+
+With our simulated data, with $\nu$'s of $5,6,7,15,17,20$ we can create posterior distributions using the `brms` R package. An example of taking posterior draws for our $\nu$'s using a $\text{Uniform}(1,50)$ prior with a sample size of $10000$ is as follows: 
+
+```{r}
+#| label: example_mcmc_code
+#| echo: true
+#| eval: false
+
+
+dat_10000 |>
+  map(function(x) {
+    temp_data <- data.frame(y = x)
+
+    brm(
+      y ~ 1,
+      data = temp_data,
+      family = student(),
+      prior = c(
+        prior_uniform_1_50,
+        prior(exponential(1), class = "sigma")
+      ),
+      warmup = 1000,
+      iter = 51000,
+      chains = 4
+    )
+  })
+```
+
+Here we ran our Hamiltonian-Metropolis-Hastings algorithm for $50000$ iterations with $1000$ iterations thrown out as the burn-in period.
+
+Below are the histograms of our Posterior Distributions obtained from our Hamiltonian-Metropolis-Hastings algorithm for $\nu$ with each specified prior distribution. Traceplots for each value of $\nu$ Chain are also included. In each histogram, the \textcolor{red} dashed lines indicate the estimated posterior mean for $\nu$, the \textcolor{blue} line indicates the true value of $\nu$ which we are trying to estimate, and the dot-dashed lines represent the upper and lower bounds of a $95\%$ Bayesian Credible interval for $\nu$:
+
+Uniform(1,50), Sample size $n=100$
+
+
+```{r}
+#| label: posterior_unif_100
+#| echo: false
+#| warning: false
+
+### reading in posteriors
+uniform_post_100 <- readRDS("Posteriors/Unif_1_50_100.rds")
+
+### Getting Posterior Distributions/Traceplots/Summaries
+post_summaries_unif_100 <- uniform_post_100 |> map(\(x) summary(x))
+post_nu_unif_100 <- uniform_post_100 |> map(\(x) as_draws_df(x)$nu)
+post_mean_unif_100 <- post_nu_unif_100 |> map(mean)
+
+#### Posterior histograms
+df <- stack(post_nu_unif_100)
+colnames(df) <- c("post", "nu")
+
+summaries <- df |>
+    dplyr::group_by(nu) |>
+    dplyr::summarise(
+        post_mean = mean(post),
+        ci_lower = quantile(post, 0.025),
+        ci_upper = quantile(post, 0.975),
+        true_mean = as.numeric(sub("nu_", "", unique(nu))),
+        .groups = "drop"
+    )
+
+df |>
+    ggplot(aes(x = post, fill = nu)) +
+    geom_histogram(bins = 100, color = "#81818160") +
+    facet_wrap(
+        ~nu,
+        scales = "free_x",
+        labeller = as_labeller(
+            function(x) paste0("nu == ", sub("nu_", "", x)),
+            label_parsed
+        )
+    ) +
+
+    geom_vline(
+        data = lines,
+        aes(xintercept = post_mean),
+        linetype = "dashed",
+        color = "red"
+    ) +
+
+    geom_vline(
+        data = lines,
+        aes(xintercept = true_mean),
+        linetype = "solid",
+        color = "blue"
+    ) +
+    geom_vline(
+        data = summaries,
+        aes(xintercept = ci_lower),
+        linetype = "dotdash"
+    ) +
+    geom_vline(
+        data = summaries,
+        aes(xintercept = ci_upper),
+        linetype = "dotdash"
+    ) +
+    scale_x_continuous() +
+
+    theme(legend.position = "none", strip.text = element_text()) +
+    labs(
+        x = "",
+        y = "",
+        title = expression(
+            "Posterior Distributions of " ~ nu ~
+                " with a Uniform(0,50) prior"
+        ),
+        subtitle = "n = 100"
+    )
+```
+
+
+
+```{r}
+#| label: trace_unif_100
+#| echo: false
+#| warning: false
+
+mcmc_plot(uniform_post_100$nu_5, variable = "nu", type = "trace") +
+    labs(
+        title = expression(paste("Traceplot of MCMC Chains for ", nu, " = 5")),
+        subtitle = "Uniform(1, 50) Prior | Sample Size 100"
+    )
+mcmc_plot(uniform_post_100$nu_6, variable = "nu", type = "trace") +
+    labs(
+        title = expression(paste("Traceplot of MCMC Chains for ", nu, " = 6")),
+        subtitle = "Uniform(1, 50) Prior | Sample Size 100"
+    )
+mcmc_plot(uniform_post_100$nu_7, variable = "nu", type = "trace") +
+    labs(
+        title = expression(paste("Traceplot of MCMC Chains for ", nu, " = 7")),
+        subtitle = "Uniform(1, 50) Prior | Sample Size 100"
+    )
+mcmc_plot(uniform_post_100$nu_15, variable = "nu", type = "trace") +
+    labs(
+        title = expression(paste("Traceplot of MCMC Chains for ", nu, " = 15")),
+        subtitle = "Uniform(1, 50) Prior | Sample Size 100"
+    )
+mcmc_plot(uniform_post_100$nu_17, variable = "nu", type = "trace") +
+    labs(
+        title = expression(paste("Traceplot of MCMC Chains for ", nu, " = 17")),
+        subtitle = "Uniform(1, 50) Prior | Sample Size 100"
+    )
+mcmc_plot(uniform_post_100$nu_20, variable = "nu", type = "trace") +
+    labs(
+        title = expression(paste("Traceplot of MCMC Chains for ", nu, " = 20")),
+        subtitle = "Uniform(1, 50) Prior | Sample Size 100"
+    )
+```
+
+Uniform(1,50), Sample size $n=1000$:
+
+```{r}
+#| label: posterior_unif_1000
+#| echo: false
+#| warning: false
+
+### reading in posteriors
+uniform_post_1000 <- readRDS("Posteriors/Unif_1_50_1000.rds")
+
+### Getting Posterior Distributions/Traceplots/Summaries
+post_summaries_unif_1000 <- uniform_post_1000 |> map(\(x) summary(x))
+post_nu_unif_1000 <- uniform_post_1000 |> map(\(x) as_draws_df(x)$nu)
+post_mean_unif_1000 <- post_nu_unif_1000 |> map(mean)
+
+#### Posterior histograms
+df <- stack(post_nu_unif_1000)
+colnames(df) <- c("post", "nu")
+
+summaries <- df |>
+    dplyr::group_by(nu) |>
+    dplyr::summarise(
+        post_mean = mean(post),
+        ci_lower = quantile(post, 0.025),
+        ci_upper = quantile(post, 0.975),
+        true_mean = as.numeric(sub("nu_", "", unique(nu))),
+        .groups = "drop"
+    )
+
+df |>
+    ggplot(aes(x = post, fill = nu)) +
+    geom_histogram(bins = 100, color = "#81818160") +
+    facet_wrap(
+        ~nu,
+        scales = "free_x",
+        labeller = as_labeller(
+            function(x) paste0("nu == ", sub("nu_", "", x)),
+            label_parsed
+        )
+    ) +
+
+    geom_vline(
+        data = lines,
+        aes(xintercept = post_mean),
+        linetype = "dashed",
+        color = "red"
+    ) +
+
+    geom_vline(
+        data = lines,
+        aes(xintercept = true_mean),
+        linetype = "solid",
+        color = "blue"
+    ) +
+    geom_vline(
+        data = summaries,
+        aes(xintercept = ci_lower),
+        linetype = "dotdash"
+    ) +
+    geom_vline(
+        data = summaries,
+        aes(xintercept = ci_upper),
+        linetype = "dotdash"
+    ) +
+    scale_x_continuous() +
+
+    theme(legend.position = "none", strip.text = element_text()) +
+    labs(
+        x = "",
+        y = "",
+        title = expression(
+            "Posterior Distributions of " ~ nu ~
+                " with a Uniform(1,50) prior"
+        ),
+        subtitle = "n = 1000"
+    )
+```
+
+
+```{r}
+#| label: trace_unif_1000
+#| echo: false
+#| warning: false
+
+mcmc_plot(uniform_post_1000$nu_5, variable = "nu", type = "trace") +
+    labs(
+        title = expression(paste("Traceplot of MCMC Chains for ", nu, " = 5")),
+        subtitle = "Uniform(1, 50) Prior | Sample Size 1000"
+    )
+mcmc_plot(uniform_post_1000$nu_6, variable = "nu", type = "trace") +
+    labs(
+        title = expression(paste("Traceplot of MCMC Chains for ", nu, " = 6")),
+        subtitle = "Uniform(1, 50) Prior | Sample Size 1000"
+    )
+mcmc_plot(uniform_post_1000$nu_7, variable = "nu", type = "trace") +
+    labs(
+        title = expression(paste("Traceplot of MCMC Chains for ", nu, " = 7")),
+        subtitle = "Uniform(1, 50) Prior | Sample Size 1000"
+    )
+mcmc_plot(uniform_post_1000$nu_15, variable = "nu", type = "trace") +
+    labs(
+        title = expression(paste("Traceplot of MCMC Chains for ", nu, " = 15")),
+        subtitle = "Uniform(1, 50) Prior | Sample Size 1000"
+    )
+mcmc_plot(uniform_post_1000$nu_17, variable = "nu", type = "trace") +
+    labs(
+        title = expression(paste("Traceplot of MCMC Chains for ", nu, " = 17")),
+        subtitle = "Uniform(1, 50) Prior | Sample Size 1000"
+    )
+mcmc_plot(uniform_post_1000$nu_20, variable = "nu", type = "trace") +
+    labs(
+        title = expression(paste("Traceplot of MCMC Chains for ", nu, " = 20")),
+        subtitle = "Uniform(1, 50) Prior | Sample Size 1000"
+    )
+```
+
+Uniform(1,50), Sample size $n=10000$:
+
+```{r}
+#| label: posterior_unif_10000
+#| echo: false
+#| warning: false
+
+### reading in posteriors
+uniform_post_10000 <- readRDS("Posteriors/Unif_1_50_10000.rds")
+
+### Getting Posterior Distributions/Traceplots/Summaries
+
+post_summaries_unif_10000 <- uniform_post_10000 |> map(\(x) summary(x))
+post_nu_unif_10000 <- uniform_post_10000 |> map(\(x) as_draws_df(x)$nu)
+post_mean_unif_10000 <- post_nu_unif_10000 |> map(mean)
+
+
+#### Posterior histograms
+df <- stack(post_nu_unif_10000)
+colnames(df) <- c("post", "nu")
+
+summaries <- df |>
+    dplyr::group_by(nu) |>
+    dplyr::summarise(
+        post_mean = mean(post),
+        ci_lower = quantile(post, 0.025),
+        ci_upper = quantile(post, 0.975),
+        true_mean = as.numeric(sub("nu_", "", unique(nu))),
+        .groups = "drop"
+    )
+
+df |>
+    ggplot(aes(x = post, fill = nu)) +
+    geom_histogram(bins = 100, color = "#81818160") +
+    facet_wrap(
+        ~nu,
+        scales = "free_x",
+        labeller = as_labeller(
+            function(x) paste0("nu == ", sub("nu_", "", x)),
+            label_parsed
+        )
+    ) +
+
+    geom_vline(
+        data = lines,
+        aes(xintercept = post_mean),
+        linetype = "dashed",
+        color = "red"
+    ) +
+
+    geom_vline(
+        data = lines,
+        aes(xintercept = true_mean),
+        linetype = "solid",
+        color = "blue"
+    ) +
+    geom_vline(
+        data = summaries,
+        aes(xintercept = ci_lower),
+        linetype = "dotdash"
+    ) +
+    geom_vline(
+        data = summaries,
+        aes(xintercept = ci_upper),
+        linetype = "dotdash"
+    ) +
+    scale_x_continuous() +
+
+    theme(legend.position = "none", strip.text = element_text()) +
+    labs(
+        x = "",
+        y = "",
+        title = expression(
+            "Posterior Distributions of " ~ nu ~
+                " with a Uniform(1,50) prior"
+        ),
+        subtitle = "n = 10000"
+    )
+```
+
+```{r}
+#| label: trace_unif_10000
+#| echo: false
+#| warning: false
+
+mcmc_plot(uniform_post_10000$nu_5, variable = "nu", type = "trace") +
+    labs(
+        title = expression(paste("Traceplot of MCMC Chains for ", nu, " = 5")),
+        subtitle = "Uniform(1, 50) Prior | Sample Size 10000"
+    )
+mcmc_plot(uniform_post_10000$nu_6, variable = "nu", type = "trace") +
+    labs(
+        title = expression(paste("Traceplot of MCMC Chains for ", nu, " = 6")),
+        subtitle = "Uniform(1, 50) Prior | Sample Size 10000"
+    )
+mcmc_plot(uniform_post_10000$nu_7, variable = "nu", type = "trace") +
+    labs(
+        title = expression(paste("Traceplot of MCMC Chains for ", nu, " = 7")),
+        subtitle = "Uniform(1, 50) Prior | Sample Size 10000"
+    )
+mcmc_plot(uniform_post_10000$nu_15, variable = "nu", type = "trace") +
+    labs(
+        title = expression(paste("Traceplot of MCMC Chains for ", nu, " = 15")),
+        subtitle = "Uniform(1, 50) Prior | Sample Size 10000"
+    )
+mcmc_plot(uniform_post_10000$nu_17, variable = "nu", type = "trace") +
+    labs(
+        title = expression(paste("Traceplot of MCMC Chains for ", nu, " = 17")),
+        subtitle = "Uniform(1, 50) Prior | Sample Size 10000"
+    )
+mcmc_plot(uniform_post_10000$nu_20, variable = "nu", type = "trace") +
+    labs(
+        title = expression(paste("Traceplot of MCMC Chains for ", nu, " = 20")),
+        subtitle = "Uniform(1, 50) Prior | Sample Size 10000"
+    )
+```
+
+$Gamma(1,4)$, sample size $n=100$:
+
+```{r}
+#| label: posterior_g14_100
+#| echo: false
+#| warning: false
+
+### reading in posteriors
+gamma_post_14_100 <- readRDS("Posteriors/Gamma_1_4_100.rds")
+
+### Getting Posterior Distributions/Traceplots/Summaries
+
+post_summaries_gamma_14_100 <- gamma_post_14_100 |> map(\(x) summary(x))
+post_nu_gamma_14_100 <- gamma_post_14_100 |> map(\(x) as_draws_df(x)$nu)
+post_mean_gamma_14_100 <- post_nu_gamma_14_100 |> map(mean)
+
+#### Posterior histograms
+df <- stack(post_nu_gamma_14_100)
+colnames(df) <- c("post", "nu")
+
+summaries <- df |>
+    dplyr::group_by(nu) |>
+    dplyr::summarise(
+        post_mean = mean(post),
+        ci_lower = quantile(post, 0.025),
+        ci_upper = quantile(post, 0.975),
+        true_mean = as.numeric(sub("nu_", "", unique(nu))),
+        .groups = "drop"
+    )
+
+df |>
+    ggplot(aes(x = post, fill = nu)) +
+    geom_histogram(bins = 100, color = "#81818160") +
+    facet_wrap(
+        ~nu,
+        scales = "free_x",
+        labeller = as_labeller(
+            function(x) paste0("nu == ", sub("nu_", "", x)),
+            label_parsed
+        )
+    ) +
+
+    geom_vline(
+        data = lines,
+        aes(xintercept = post_mean),
+        linetype = "dashed",
+        color = "red"
+    ) +
+
+    geom_vline(
+        data = lines,
+        aes(xintercept = true_mean),
+        linetype = "solid",
+        color = "blue"
+    ) +
+    geom_vline(
+        data = summaries,
+        aes(xintercept = ci_lower),
+        linetype = "dotdash"
+    ) +
+    geom_vline(
+        data = summaries,
+        aes(xintercept = ci_upper),
+        linetype = "dotdash"
+    ) +
+    scale_x_continuous() +
+
+    theme(legend.position = "none", strip.text = element_text()) +
+    labs(
+        x = "",
+        y = "",
+        title = expression(
+            "Posterior Distributions of " ~ nu ~
+                " with a Gamma(1,4) prior"
+        ),
+        subtitle = "n = 100"
+    )
+```
+
+```{r}
+#| label: trace_g14_100
+#| echo: false
+#| warning: false
+
+
+mcmc_plot(gamma_post_14_100$nu_5, variable = "nu", type = "trace") +
+    labs(
+        title = expression(paste("Traceplot of MCMC Chains for ", nu, " = 5")),
+        subtitle = "Gamma(1,4) Prior | Sample Size 100"
+    )
+mcmc_plot(gamma_post_14_100$nu_6, variable = "nu", type = "trace") +
+    labs(
+        title = expression(paste("Traceplot of MCMC Chains for ", nu, " = 6")),
+        subtitle = "Gamma(1,4) Prior | Sample Size 100"
+    )
+mcmc_plot(gamma_post_14_100$nu_7, variable = "nu", type = "trace") +
+    labs(
+        title = expression(paste("Traceplot of MCMC Chains for ", nu, " = 7")),
+        subtitle = "Gamma(1,4) Prior | Sample Size 100"
+    )
+mcmc_plot(gamma_post_14_100$nu_15, variable = "nu", type = "trace") +
+    labs(
+        title = expression(paste("Traceplot of MCMC Chains for ", nu, " = 15")),
+        subtitle = "Gamma(1,4) Prior | Sample Size 100"
+    )
+mcmc_plot(gamma_post_14_100$nu_17, variable = "nu", type = "trace") +
+    labs(
+        title = expression(paste("Traceplot of MCMC Chains for ", nu, " = 17")),
+        subtitle = "Gamma(1,4) Prior | Sample Size 100"
+    )
+mcmc_plot(gamma_post_14_100$nu_20, variable = "nu", type = "trace") +
+    labs(
+        title = expression(paste("Traceplot of MCMC Chains for ", nu, " = 20")),
+        subtitle = "Gamma(1,4) Prior | Sample Size 100"
+    )
+```
+
+
+$Gamma(1,4)$, sample size $n=1000$:
+
+```{r}
+#| label: posterior_g14_1000
+#| echo: false
+#| warning: false
+
+### reading in posteriors
+gamma_post_14_1000 <- readRDS("Posteriors/Gamma_1_4_1000.rds")
+### Getting Posterior Distributions/Traceplots/Summaries
+
+
+post_summaries_gamma_14_1000 <- gamma_post_14_1000 |> map(\(x) summary(x))
+post_nu_gamma_14_1000 <- gamma_post_14_1000 |> map(\(x) as_draws_df(x)$nu)
+post_mean_gamma_14_1000 <- post_nu_gamma_14_1000 |> map(mean)
+
+#### Posterior histograms
+df <- stack(post_nu_gamma_14_1000)
+colnames(df) <- c("post", "nu")
+
+summaries <- df |>
+    dplyr::group_by(nu) |>
+    dplyr::summarise(
+        post_mean = mean(post),
+        ci_lower = quantile(post, 0.025),
+        ci_upper = quantile(post, 0.975),
+        true_mean = as.numeric(sub("nu_", "", unique(nu))),
+        .groups = "drop"
+    )
+
+df |>
+    ggplot(aes(x = post, fill = nu)) +
+    geom_histogram(bins = 100, color = "#81818160") +
+    facet_wrap(
+        ~nu,
+        scales = "free_x",
+        labeller = as_labeller(
+            function(x) paste0("nu == ", sub("nu_", "", x)),
+            label_parsed
+        )
+    ) +
+
+    geom_vline(
+        data = lines,
+        aes(xintercept = post_mean),
+        linetype = "dashed",
+        color = "red"
+    ) +
+
+    geom_vline(
+        data = lines,
+        aes(xintercept = true_mean),
+        linetype = "solid",
+        color = "blue"
+    ) +
+    geom_vline(
+        data = summaries,
+        aes(xintercept = ci_lower),
+        linetype = "dotdash"
+    ) +
+    geom_vline(
+        data = summaries,
+        aes(xintercept = ci_upper),
+        linetype = "dotdash"
+    ) +
+    scale_x_continuous() +
+
+    theme(legend.position = "none", strip.text = element_text()) +
+    labs(
+        x = "",
+        y = "",
+        title = expression(
+            "Posterior Distributions of " ~ nu ~
+                " with a Gamma(1,4) prior"
+        ),
+        subtitle = "n = 1000"
+    )
+```
+
+```{r}
+#| label: trace_g14_1000
+#| echo: false
+#| warning: false
+
+#### traceplots:
+
+mcmc_plot(gamma_post_14_1000$nu_5, variable = "nu", type = "trace") +
+    labs(
+        title = expression(paste("Traceplot of MCMC Chains for ", nu, " = 5")),
+        subtitle = "Gamma(1,4) Prior | Sample Size 1000"
+    )
+mcmc_plot(gamma_post_14_1000$nu_6, variable = "nu", type = "trace") +
+    labs(
+        title = expression(paste("Traceplot of MCMC Chains for ", nu, " = 6")),
+        subtitle = "Gamma(1,4) Prior | Sample Size 100"
+    )
+mcmc_plot(gamma_post_14_1000$nu_7, variable = "nu", type = "trace") +
+    labs(
+        title = expression(paste("Traceplot of MCMC Chains for ", nu, " = 7")),
+        subtitle = "Gamma(1,4) Prior | Sample Size 1000"
+    )
+mcmc_plot(gamma_post_14_1000$nu_15, variable = "nu", type = "trace") +
+    labs(
+        title = expression(paste("Traceplot of MCMC Chains for ", nu, " = 15")),
+        subtitle = "Gamma(1,4) Prior | Sample Size 1000"
+    )
+mcmc_plot(gamma_post_14_1000$nu_17, variable = "nu", type = "trace") +
+    labs(
+        title = expression(paste("Traceplot of MCMC Chains for ", nu, " = 17")),
+        subtitle = "Gamma(1,4) Prior | Sample Size 1000"
+    )
+mcmc_plot(gamma_post_14_1000$nu_20, variable = "nu", type = "trace") +
+    labs(
+        title = expression(paste("Traceplot of MCMC Chains for ", nu, " = 20")),
+        subtitle = "Gamma(1,4) Prior | Sample Size 1000"
+    )
+
+```
+
+
+$Gamma(1,4)$, sample size $n=10000$:
+
+```{r}
+#| label: posterior_g14_10000
+#| echo: false
+#| warning: false
+
+### reading in posteriors
+gamma_post_14_10000 <- readRDS("Posteriors/Gamma_1_4_10000.rds")
+
+### Getting Posterior Distributions/Traceplots/Summaries
+
+post_summaries_gamma_14_10000 <- gamma_post_14_10000 |> map(\(x) summary(x))
+post_nu_gamma_14_10000 <- gamma_post_14_10000 |> map(\(x) as_draws_df(x)$nu)
+post_mean_gamma_14_10000 <- post_nu_gamma_14_10000 |> map(mean)
+
+#### Posterior histograms
+df <- stack(post_nu_gamma_14_10000)
+colnames(df) <- c("post", "nu")
+
+summaries <- df |>
+    dplyr::group_by(nu) |>
+    dplyr::summarise(
+        post_mean = mean(post),
+        ci_lower = quantile(post, 0.025),
+        ci_upper = quantile(post, 0.975),
+        true_mean = as.numeric(sub("nu_", "", unique(nu))),
+        .groups = "drop"
+    )
+
+df |>
+    ggplot(aes(x = post, fill = nu)) +
+    geom_histogram(bins = 100, color = "#81818160") +
+    facet_wrap(
+        ~nu,
+        scales = "free_x",
+        labeller = as_labeller(
+            function(x) paste0("nu == ", sub("nu_", "", x)),
+            label_parsed
+        )
+    ) +
+
+    geom_vline(
+        data = lines,
+        aes(xintercept = post_mean),
+        linetype = "dashed",
+        color = "red"
+    ) +
+
+    geom_vline(
+        data = lines,
+        aes(xintercept = true_mean),
+        linetype = "solid",
+        color = "blue"
+    ) +
+    geom_vline(
+        data = summaries,
+        aes(xintercept = ci_lower),
+        linetype = "dotdash"
+    ) +
+    geom_vline(
+        data = summaries,
+        aes(xintercept = ci_upper),
+        linetype = "dotdash"
+    ) +
+    scale_x_continuous() +
+
+    theme(legend.position = "none", strip.text = element_text()) +
+    labs(
+        x = "",
+        y = "",
+        title = expression(
+            "Posterior Distributions of " ~ nu ~
+                " with a Gamma(1,4) prior"
+        ),
+        subtitle = "n = 10000"
+    )
+
+```
+
+```{r}
+#| label: trace_g14_10000
+#| echo: false
+#| warning: false
+
+#### traceplots:
+
+mcmc_plot(gamma_post_14_10000$nu_5, variable = "nu", type = "trace") +
+    labs(
+        title = expression(paste("Traceplot of MCMC Chains for ", nu, " = 5")),
+        subtitle = "Gamma(1,4) Prior | Sample Size 10000"
+    )
+mcmc_plot(gamma_post_14_10000$nu_6, variable = "nu", type = "trace") +
+    labs(
+        title = expression(paste("Traceplot of MCMC Chains for ", nu, " = 6")),
+        subtitle = "Gamma(1,4) Prior | Sample Size 10000"
+    )
+mcmc_plot(gamma_post_14_10000$nu_7, variable = "nu", type = "trace") +
+    labs(
+        title = expression(paste("Traceplot of MCMC Chains for ", nu, " = 7")),
+        subtitle = "Gamma(1,4) Prior | Sample Size 10000"
+    )
+mcmc_plot(gamma_post_14_10000$nu_15, variable = "nu", type = "trace") +
+    labs(
+        title = expression(paste("Traceplot of MCMC Chains for ", nu, " = 15")),
+        subtitle = "Gamma(1,4) Prior | Sample Size 10000"
+    )
+mcmc_plot(gamma_post_14_10000$nu_17, variable = "nu", type = "trace") +
+    labs(
+        title = expression(paste("Traceplot of MCMC Chains for ", nu, " = 17")),
+        subtitle = "Gamma(1,4) Prior | Sample Size 10000"
+    )
+mcmc_plot(gamma_post_14_10000$nu_20, variable = "nu", type = "trace") +
+    labs(
+        title = expression(paste("Traceplot of MCMC Chains for ", nu, " = 20")),
+        subtitle = "Gamma(1,4) Prior | Sample Size 10000"
+    )
+
+
+```
+
+$Gamma(1.5,5)$, sample size $n=100$:
+
+```{r}
+#| label: posterior_g155_100
+#| echo: false
+#| warning: false
+
+### reading in posteriors
+gamma_post_155_100 <- readRDS("Posteriors/Gamma_1_5_5_100.rds")
+
+### Getting Posterior Distributions/Traceplots/Summaries
+
+post_summaries_gamma_155_100 <- gamma_post_155_100 |> map(\(x) summary(x))
+post_nu_gamma_155_100 <- gamma_post_155_100 |> map(\(x) as_draws_df(x)$nu)
+post_mean_gamma_155_100 <- post_nu_gamma_155_100 |> map(mean)
+
+#### Posterior histograms
+df <- stack(post_nu_gamma_155_100)
+colnames(df) <- c("post", "nu")
+
+summaries <- df |>
+    dplyr::group_by(nu) |>
+    dplyr::summarise(
+        post_mean = mean(post),
+        ci_lower = quantile(post, 0.025),
+        ci_upper = quantile(post, 0.975),
+        true_mean = as.numeric(sub("nu_", "", unique(nu))),
+        .groups = "drop"
+    )
+
+df |>
+    ggplot(aes(x = post, fill = nu)) +
+    geom_histogram(bins = 100, color = "#81818160") +
+    facet_wrap(
+        ~nu,
+        scales = "free_x",
+        labeller = as_labeller(
+            function(x) paste0("nu == ", sub("nu_", "", x)),
+            label_parsed
+        )
+    ) +
+
+    geom_vline(
+        data = lines,
+        aes(xintercept = post_mean),
+        linetype = "dashed",
+        color = "red"
+    ) +
+
+    geom_vline(
+        data = lines,
+        aes(xintercept = true_mean),
+        linetype = "solid",
+        color = "blue"
+    ) +
+    geom_vline(
+        data = summaries,
+        aes(xintercept = ci_lower),
+        linetype = "dotdash"
+    ) +
+    geom_vline(
+        data = summaries,
+        aes(xintercept = ci_upper),
+        linetype = "dotdash"
+    ) +
+    scale_x_continuous() +
+
+    theme(legend.position = "none", strip.text = element_text()) +
+    labs(
+        x = "",
+        y = "",
+        title = expression(
+            "Posterior Distributions of " ~ nu ~
+                " with a Gamma(1.5,5) prior"
+        ),
+        subtitle = "n = 100"
+    )
+```
+
+```{r}
+#| label: trace_g155_100
+#| echo: false
+#| warning: false
+
+mcmc_plot(gamma_post_155_100$nu_5, variable = "nu", type = "trace") +
+    labs(
+        title = expression(paste("Traceplot of MCMC Chains for ", nu, " = 5")),
+        subtitle = "Gamma(1.5,5) Prior | Sample Size 100"
+    )
+mcmc_plot(gamma_post_155_100$nu_6, variable = "nu", type = "trace") +
+    labs(
+        title = expression(paste("Traceplot of MCMC Chains for ", nu, " = 6")),
+        subtitle = "Gamma(1.5,5) Prior | Sample Size 100"
+    )
+mcmc_plot(gamma_post_155_100$nu_7, variable = "nu", type = "trace") +
+    labs(
+        title = expression(paste("Traceplot of MCMC Chains for ", nu, " = 7")),
+        subtitle = "Gamma(1.5,5) Prior | Sample Size 100"
+    )
+mcmc_plot(gamma_post_155_100$nu_15, variable = "nu", type = "trace") +
+    labs(
+        title = expression(paste("Traceplot of MCMC Chains for ", nu, " = 15")),
+        subtitle = "Gamma(1.5,5) Prior | Sample Size 100"
+    )
+mcmc_plot(gamma_post_155_100$nu_17, variable = "nu", type = "trace") +
+    labs(
+        title = expression(paste("Traceplot of MCMC Chains for ", nu, " = 17")),
+        subtitle = "Gamma(1.5,5) Prior | Sample Size 100"
+    )
+mcmc_plot(gamma_post_155_100$nu_20, variable = "nu", type = "trace") +
+    labs(
+        title = expression(paste("Traceplot of MCMC Chains for ", nu, " = 20")),
+        subtitle = "Gamma(1.5,5) Prior | Sample Size 100"
+    )
+
+
+```
+
+
+$Gamma(1.5,5)$, sample size $n=1000$:
+
+```{r}
+#| label: posterior_g155_1000
+#| echo: false
+#| warning: false
+
+gamma_post_155_1000 <- readRDS("Posteriors/Gamma_1_5_5_1000.rds")
+
+### Getting Posterior Distributions/Traceplots/Summaries
+
+post_summaries_gamma_155_1000 <- gamma_post_155_1000 |> map(\(x) summary(x))
+post_nu_gamma_155_1000 <- gamma_post_155_1000 |> map(\(x) as_draws_df(x)$nu)
+post_mean_gamma_155_1000 <- post_nu_gamma_155_1000 |> map(mean)
+
+#### Posterior histograms
+df <- stack(post_nu_gamma_155_1000)
+colnames(df) <- c("post", "nu")
+
+summaries <- df |>
+    dplyr::group_by(nu) |>
+    dplyr::summarise(
+        post_mean = mean(post),
+        ci_lower = quantile(post, 0.025),
+        ci_upper = quantile(post, 0.975),
+        true_mean = as.numeric(sub("nu_", "", unique(nu))),
+        .groups = "drop"
+    )
+
+df |>
+    ggplot(aes(x = post, fill = nu)) +
+    geom_histogram(bins = 100, color = "#81818160") +
+    facet_wrap(
+        ~nu,
+        scales = "free_x",
+        labeller = as_labeller(
+            function(x) paste0("nu == ", sub("nu_", "", x)),
+            label_parsed
+        )
+    ) +
+
+    geom_vline(
+        data = lines,
+        aes(xintercept = post_mean),
+        linetype = "dashed",
+        color = "red"
+    ) +
+
+    geom_vline(
+        data = lines,
+        aes(xintercept = true_mean),
+        linetype = "solid",
+        color = "blue"
+    ) +
+    geom_vline(
+        data = summaries,
+        aes(xintercept = ci_lower),
+        linetype = "dotdash"
+    ) +
+    geom_vline(
+        data = summaries,
+        aes(xintercept = ci_upper),
+        linetype = "dotdash"
+    ) +
+    scale_x_continuous() +
+
+    theme(legend.position = "none", strip.text = element_text()) +
+    labs(
+        x = "",
+        y = "",
+        title = expression(
+            "Posterior Distributions of " ~ nu ~
+                " with a Gamma(1.5,5) prior"
+        ),
+        subtitle = "n = 1000"
+    )
+```
+
+```{r}
+#| label: trace_g155_1000
+#| echo: false
+#| warning: false
+
+#### traceplots:
+
+mcmc_plot(gamma_post_155_1000$nu_5, variable = "nu", type = "trace") +
+    labs(
+        title = expression(paste("Traceplot of MCMC Chains for ", nu, " = 5")),
+        subtitle = "Gamma(1.5,5) Prior | Sample Size 1000"
+    )
+mcmc_plot(gamma_post_155_1000$nu_6, variable = "nu", type = "trace") +
+    labs(
+        title = expression(paste("Traceplot of MCMC Chains for ", nu, " = 6")),
+        subtitle = "Gamma(1.5,5) Prior | Sample Size 1000"
+    )
+mcmc_plot(gamma_post_155_1000$nu_7, variable = "nu", type = "trace") +
+    labs(
+        title = expression(paste("Traceplot of MCMC Chains for ", nu, " = 7")),
+        subtitle = "Gamma(1.5,5) Prior | Sample Size 1000"
+    )
+mcmc_plot(gamma_post_155_1000$nu_15, variable = "nu", type = "trace") +
+    labs(
+        title = expression(paste("Traceplot of MCMC Chains for ", nu, " = 15")),
+        subtitle = "Gamma(1.5,5) Prior | Sample Size 1000"
+    )
+mcmc_plot(gamma_post_155_1000$nu_17, variable = "nu", type = "trace") +
+    labs(
+        title = expression(paste("Traceplot of MCMC Chains for ", nu, " = 17")),
+        subtitle = "Gamma(1.5,5) Prior | Sample Size 1000"
+    )
+mcmc_plot(gamma_post_155_1000$nu_20, variable = "nu", type = "trace") +
+    labs(
+        title = expression(paste("Traceplot of MCMC Chains for ", nu, " = 20")),
+        subtitle = "Gamma(1.5,5) Prior | Sample Size 1000"
+    )
+
+
+```
+
+
+$Gamma(1.5,5)$, sample size $n=10000$:
+
+```{r}
+#| label: posterior_g155_10000
+#| echo: false
+#| warning: false
+
+gamma_post_155_10000 <- readRDS("Posteriors/Gamma_1_5_5_10000.rds")
+
+### Getting Posterior Distributions/Traceplots/Summaries
+
+post_summaries_gamma_155_10000 <- gamma_post_155_10000 |> map(\(x) summary(x))
+post_nu_gamma_155_10000 <- gamma_post_155_10000 |> map(\(x) as_draws_df(x)$nu)
+post_mean_gamma_155_10000 <- post_nu_gamma_155_10000 |> map(mean)
+
+#### Posterior histograms
+df <- stack(post_nu_gamma_155_10000)
+colnames(df) <- c("post", "nu")
+
+summaries <- df |>
+    dplyr::group_by(nu) |>
+    dplyr::summarise(
+        post_mean = mean(post),
+        ci_lower = quantile(post, 0.025),
+        ci_upper = quantile(post, 0.975),
+        true_mean = as.numeric(sub("nu_", "", unique(nu))),
+        .groups = "drop"
+    )
+
+df |>
+    ggplot(aes(x = post, fill = nu)) +
+    geom_histogram(bins = 100, color = "#81818160") +
+    facet_wrap(
+        ~nu,
+        scales = "free_x",
+        labeller = as_labeller(
+            function(x) paste0("nu == ", sub("nu_", "", x)),
+            label_parsed
+        )
+    ) +
+
+    geom_vline(
+        data = lines,
+        aes(xintercept = post_mean),
+        linetype = "dashed",
+        color = "red"
+    ) +
+
+    geom_vline(
+        data = lines,
+        aes(xintercept = true_mean),
+        linetype = "solid",
+        color = "blue"
+    ) +
+    geom_vline(
+        data = summaries,
+        aes(xintercept = ci_lower),
+        linetype = "dotdash"
+    ) +
+    geom_vline(
+        data = summaries,
+        aes(xintercept = ci_upper),
+        linetype = "dotdash"
+    ) +
+    scale_x_continuous() +
+
+    theme(legend.position = "none", strip.text = element_text()) +
+    labs(
+        x = "",
+        y = "",
+        title = expression(
+            "Posterior Distributions of " ~ nu ~
+                " with a Gamma(1.5,5) prior"
+        ),
+        subtitle = "n = 10000"
+    )
+```
+
+```{r}
+#| label: trace_g155_10000
+#| echo: false
+#| warning: false
+
+mcmc_plot(gamma_post_155_10000$nu_5, variable = "nu", type = "trace") +
+    labs(
+        title = expression(paste("Traceplot of MCMC Chains for ", nu, " = 5")),
+        subtitle = "Gamma(1.5,5) Prior | Sample Size 10000"
+    )
+cmc_plot(gamma_post_155_10000$nu_6, variable = "nu", type = "trace") +
+    labs(
+        title = expression(paste("Traceplot of MCMC Chains for ", nu, " = 6")),
+        subtitle = "Gamma(1.5,5) Prior | Sample Size 10000"
+    )
+mcmc_plot(gamma_post_155_10000$nu_7, variable = "nu", type = "trace") +
+    labs(
+        title = expression(paste("Traceplot of MCMC Chains for ", nu, " = 7")),
+        subtitle = "Gamma(1.5,5) Prior | Sample Size 10000"
+    )
+mcmc_plot(gamma_post_155_10000$nu_15, variable = "nu", type = "trace") +
+    labs(
+        title = expression(paste("Traceplot of MCMC Chains for ", nu, " = 15")),
+        subtitle = "Gamma(1.5,5) Prior | Sample Size 10000"
+    )
+mcmc_plot(gamma_post_155_10000$nu_17, variable = "nu", type = "trace") +
+    labs(
+        title = expression(paste("Traceplot of MCMC Chains for ", nu, " = 17")),
+        subtitle = "Gamma(1.5,5) Prior | Sample Size 10000"
+    )
+mcmc_plot(gamma_post_155_10000$nu_20, variable = "nu", type = "trace") +
+    labs(
+        title = expression(paste("Traceplot of MCMC Chains for ", nu, " = 20")),
+        subtitle = "Gamma(1.5,5) Prior | Sample Size 10000"
+    )
+
+
+```
+
+$Gamma(2,5)$, sample size $n=100$:
+
+```{r}
+#| label: posterior_g25_100
+#| echo: false
+#| warning: false
+
+### reading in posteriors
+gamma_post_25_100 <- readRDS("Posteriors/Gamma_2_5_100.rds")
+
+### Getting Posterior Distributions/Traceplots/Summaries
+
+post_summaries_gamma_25_100 <- gamma_post_25_100 |> map(\(x) summary(x))
+post_nu_gamma_25_100 <- gamma_post_25_100 |> map(\(x) as_draws_df(x)$nu)
+post_mean_gamma_25_100 <- post_nu_gamma_25_100 |> map(mean)
+
+#### Posterior histograms
+df <- stack(post_nu_gamma_25_100)
+colnames(df) <- c("post", "nu")
+
+summaries <- df |>
+    dplyr::group_by(nu) |>
+    dplyr::summarise(
+        post_mean = mean(post),
+        ci_lower = quantile(post, 0.025),
+        ci_upper = quantile(post, 0.975),
+        true_mean = as.numeric(sub("nu_", "", unique(nu))),
+        .groups = "drop"
+    )
+
+df |>
+    ggplot(aes(x = post, fill = nu)) +
+    geom_histogram(bins = 100, color = "#81818160") +
+    facet_wrap(
+        ~nu,
+        scales = "free_x",
+        labeller = as_labeller(
+            function(x) paste0("nu == ", sub("nu_", "", x)),
+            label_parsed
+        )
+    ) +
+
+    geom_vline(
+        data = lines,
+        aes(xintercept = post_mean),
+        linetype = "dashed",
+        color = "red"
+    ) +
+
+    geom_vline(
+        data = lines,
+        aes(xintercept = true_mean),
+        linetype = "solid",
+        color = "blue"
+    ) +
+    geom_vline(
+        data = summaries,
+        aes(xintercept = ci_lower),
+        linetype = "dotdash"
+    ) +
+    geom_vline(
+        data = summaries,
+        aes(xintercept = ci_upper),
+        linetype = "dotdash"
+    ) +
+    scale_x_continuous() +
+
+    theme(legend.position = "none", strip.text = element_text()) +
+    labs(
+        x = "",
+        y = "",
+        title = expression(
+            "Posterior Distributions of " ~ nu ~
+                " with a Gamma(2,5) prior"
+        ),
+        subtitle = "n = 100"
+    )
+```
+
+```{r}
+#| label: trace_g25_100
+#| echo: false
+#| warning: false
+
+mcmc_plot(gamma_post_25_100$nu_5, variable = "nu", type = "trace") +
+    labs(
+        title = expression(paste("Traceplot of MCMC Chains for ", nu, " = 5")),
+        subtitle = "Gamma(2,5) Prior | Sample Size 100"
+    )
+mcmc_plot(gamma_post_25_100$nu_6, variable = "nu", type = "trace") +
+    labs(
+        title = expression(paste("Traceplot of MCMC Chains for ", nu, " = 6")),
+        subtitle = "Gamma(2,5) Prior | Sample Size 100"
+    )
+mcmc_plot(gamma_post_25_100$nu_7, variable = "nu", type = "trace") +
+    labs(
+        title = expression(paste("Traceplot of MCMC Chains for ", nu, " = 7")),
+        subtitle = "Gamma(2,5) Prior | Sample Size 100"
+    )
+mcmc_plot(gamma_post_25_100$nu_15, variable = "nu", type = "trace") +
+    labs(
+        title = expression(paste("Traceplot of MCMC Chains for ", nu, " = 15")),
+        subtitle = "Gamma(2,5) Prior | Sample Size 100"
+    )
+mcmc_plot(gamma_post_25_100$nu_17, variable = "nu", type = "trace") +
+    labs(
+        title = expression(paste("Traceplot of MCMC Chains for ", nu, " = 17")),
+        subtitle = "Gamma(2,5) Prior | Sample Size 100"
+    )
+mcmc_plot(gamma_post_25_100$nu_20, variable = "nu", type = "trace") +
+    labs(
+        title = expression(paste("Traceplot of MCMC Chains for ", nu, " = 20")),
+        subtitle = "Gamma(2,5) Prior | Sample Size 100"
+    )
+
+
+```
+
+
+$Gamma(2,5)$, sample size $n=1000$:
+
+```{r}
+#| label: posterior_g25_1000
+#| echo: false
+#| warning: false
+
+gamma_post_25_1000 <- readRDS("Posteriors/Gamma_2_5_1000.rds")
+
+### Getting Posterior Distributions/Traceplots/Summaries
+
+post_summaries_gamma_25_1000 <- gamma_post_25_1000 |> map(\(x) summary(x))
+post_nu_gamma_25_1000 <- gamma_post_25_1000 |> map(\(x) as_draws_df(x)$nu)
+post_mean_gamma_25_1000 <- post_nu_gamma_25_1000 |> map(mean)
+
+#### Posterior histograms
+df <- stack(post_nu_gamma_25_1000)
+colnames(df) <- c("post", "nu")
+
+summaries <- df |>
+    dplyr::group_by(nu) |>
+    dplyr::summarise(
+        post_mean = mean(post),
+        ci_lower = quantile(post, 0.025),
+        ci_upper = quantile(post, 0.975),
+        true_mean = as.numeric(sub("nu_", "", unique(nu))),
+        .groups = "drop"
+    )
+
+df |>
+    ggplot(aes(x = post, fill = nu)) +
+    geom_histogram(bins = 100, color = "#81818160") +
+    facet_wrap(
+        ~nu,
+        scales = "free_x",
+        labeller = as_labeller(
+            function(x) paste0("nu == ", sub("nu_", "", x)),
+            label_parsed
+        )
+    ) +
+
+    geom_vline(
+        data = lines,
+        aes(xintercept = post_mean),
+        linetype = "dashed",
+        color = "red"
+    ) +
+
+    geom_vline(
+        data = lines,
+        aes(xintercept = true_mean),
+        linetype = "solid",
+        color = "blue"
+    ) +
+    geom_vline(
+        data = summaries,
+        aes(xintercept = ci_lower),
+        linetype = "dotdash"
+    ) +
+    geom_vline(
+        data = summaries,
+        aes(xintercept = ci_upper),
+        linetype = "dotdash"
+    ) +
+    scale_x_continuous() +
+
+    theme(legend.position = "none", strip.text = element_text()) +
+    labs(
+        x = "",
+        y = "",
+        title = expression(
+            "Posterior Distributions of " ~ nu ~
+                " with a Gamma(2,5) prior"
+        ),
+        subtitle = "n = 1000"
+    )
+
+```
+
+```{r}
+#| label: trace_g25_1000
+#| echo: false
+#| warning: false
+
+mcmc_plot(gamma_post_25_1000$nu_5, variable = "nu", type = "trace") +
+    labs(
+        title = expression(paste("Traceplot of MCMC Chains for ", nu, " = 5")),
+        subtitle = "Gamma(2,5) Prior | Sample Size 1000"
+    )
+mcmc_plot(gamma_post_25_1000$nu_6, variable = "nu", type = "trace") +
+    labs(
+        title = expression(paste("Traceplot of MCMC Chains for ", nu, " = 6")),
+        subtitle = "Gamma(2,5) Prior | Sample Size 1000"
+    )
+mcmc_plot(gamma_post_25_1000$nu_7, variable = "nu", type = "trace") +
+    labs(
+        title = expression(paste("Traceplot of MCMC Chains for ", nu, " = 7")),
+        subtitle = "Gamma(2,5) Prior | Sample Size 1000"
+    )
+mcmc_plot(gamma_post_25_1000$nu_15, variable = "nu", type = "trace") +
+    labs(
+        title = expression(paste("Traceplot of MCMC Chains for ", nu, " = 15")),
+        subtitle = "Gamma(2,5) Prior | Sample Size 1000"
+    )
+mcmc_plot(gamma_post_25_1000$nu_17, variable = "nu", type = "trace") +
+    labs(
+        title = expression(paste("Traceplot of MCMC Chains for ", nu, " = 17")),
+        subtitle = "Gamma(2,5) Prior | Sample Size 1000"
+    )
+mcmc_plot(gamma_post_25_1000$nu_20, variable = "nu", type = "trace") +
+    labs(
+        title = expression(paste("Traceplot of MCMC Chains for ", nu, " = 20")),
+        subtitle = "Gamma(2,5) Prior | Sample Size 1000"
+    )
+
+
+```
+
+
+$Gamma(2,5)$, sample size $n=10000$:
+
+```{r}
+#| label: posterior_g25_10000
+#| echo: false
+#| warning: false
+
+### reading in posteriors
+gamma_post_25_10000 <- readRDS("Posteriors/Gamma_2_5_10000.rds")
+
+### Getting Posterior Distributions/Traceplots/Summaries
+
+post_summaries_gamma_25_10000 <- gamma_post_25_10000 |> map(\(x) summary(x))
+post_nu_gamma_25_10000 <- gamma_post_25_10000 |> map(\(x) as_draws_df(x)$nu)
+post_mean_gamma_25_10000 <- post_nu_gamma_25_10000 |> map(mean)
+
+#### Posterior histograms
+df <- stack(post_nu_gamma_25_10000)
+colnames(df) <- c("post", "nu")
+
+summaries <- df |>
+    dplyr::group_by(nu) |>
+    dplyr::summarise(
+        post_mean = mean(post),
+        ci_lower = quantile(post, 0.025),
+        ci_upper = quantile(post, 0.975),
+        true_mean = as.numeric(sub("nu_", "", unique(nu))),
+        .groups = "drop"
+    )
+
+df |>
+    ggplot(aes(x = post, fill = nu)) +
+    geom_histogram(bins = 100, color = "#81818160") +
+    facet_wrap(
+        ~nu,
+        scales = "free_x",
+        labeller = as_labeller(
+            function(x) paste0("nu == ", sub("nu_", "", x)),
+            label_parsed
+        )
+    ) +
+
+    geom_vline(
+        data = lines,
+        aes(xintercept = post_mean),
+        linetype = "dashed",
+        color = "red"
+    ) +
+
+    geom_vline(
+        data = lines,
+        aes(xintercept = true_mean),
+        linetype = "solid",
+        color = "blue"
+    ) +
+    geom_vline(
+        data = summaries,
+        aes(xintercept = ci_lower),
+        linetype = "dotdash"
+    ) +
+    geom_vline(
+        data = summaries,
+        aes(xintercept = ci_upper),
+        linetype = "dotdash"
+    ) +
+    scale_x_continuous() +
+
+    theme(legend.position = "none", strip.text = element_text()) +
+    labs(
+        x = "",
+        y = "",
+        title = expression(
+            "Posterior Distributions of " ~ nu ~
+                " with a Gamma(2,5) prior"
+        ),
+        subtitle = "n = 10000"
+    )
+```
+
+```{r}
+#| label: trace_g25_10000
+#| echo: false
+#| warning: false
+
+mcmc_plot(gamma_post_25_10000$nu_5, variable = "nu", type = "trace") +
+    labs(
+        title = expression(paste("Traceplot of MCMC Chains for ", nu, " = 5")),
+        subtitle = "Gamma(2,5) Prior | Sample Size 10000"
+    )
+mcmc_plot(gamma_post_25_10000$nu_6, variable = "nu", type = "trace") +
+    labs(
+        title = expression(paste("Traceplot of MCMC Chains for ", nu, " = 6")),
+        subtitle = "Gamma(2,5) Prior | Sample Size 10000"
+    )
+mcmc_plot(gamma_post_25_10000$nu_7, variable = "nu", type = "trace") +
+    labs(
+        title = expression(paste("Traceplot of MCMC Chains for ", nu, " = 7")),
+        subtitle = "Gamma(2,5) Prior | Sample Size 10000"
+    )
+mcmc_plot(gamma_post_25_10000$nu_15, variable = "nu", type = "trace") +
+    labs(
+        title = expression(paste("Traceplot of MCMC Chains for ", nu, " = 15")),
+        subtitle = "Gamma(2,5) Prior | Sample Size 10000"
+    )
+mcmc_plot(gamma_post_25_10000$nu_17, variable = "nu", type = "trace") +
+    labs(
+        title = expression(paste("Traceplot of MCMC Chains for ", nu, " = 17")),
+        subtitle = "Gamma(2,5) Prior | Sample Size 10000"
+    )
+mcmc_plot(gamma_post_25_10000$nu_20, variable = "nu", type = "trace") +
+    labs(
+        title = expression(paste("Traceplot of MCMC Chains for ", nu, " = 20")),
+        subtitle = "Gamma(2,5) Prior | Sample Size 10000"
+    )
+
+```
+
+$Normal^+(0,5)$, Sample size $n=100$:
+
+```{r}
+#| label: posterior_n05_100
+#| echo: false
+#| warning: false
+hnorm_post_05_100 <- readRDS("Posteriors/Half_Normal_0_5_100.rds")
+
+### Getting Posterior Distributions/Traceplots/Summaries
+
+post_summaries_hnorm_05_100 <- hnorm_post_05_100 |> map(\(x) summary(x))
+post_nu_hnorm_05_100 <- hnorm_post_05_100 |> map(\(x) as_draws_df(x)$nu)
+post_mean_hnorm_05_100 <- post_nu_hnorm_05_100 |> map(mean)
+
+#### Posterior histograms
+df <- stack(post_nu_hnorm_05_100)
+colnames(df) <- c("post", "nu")
+
+summaries <- df |>
+    dplyr::group_by(nu) |>
+    dplyr::summarise(
+        post_mean = mean(post),
+        ci_lower = quantile(post, 0.025),
+        ci_upper = quantile(post, 0.975),
+        true_mean = as.numeric(sub("nu_", "", unique(nu))),
+        .groups = "drop"
+    )
+
+df |>
+    ggplot(aes(x = post, fill = nu)) +
+    geom_histogram(bins = 100, color = "#81818160") +
+    facet_wrap(
+        ~nu,
+        scales = "free_x",
+        labeller = as_labeller(
+            function(x) paste0("nu == ", sub("nu_", "", x)),
+            label_parsed
+        )
+    ) +
+
+    geom_vline(
+        data = lines,
+        aes(xintercept = post_mean),
+        linetype = "dashed",
+        color = "red"
+    ) +
+
+    geom_vline(
+        data = lines,
+        aes(xintercept = true_mean),
+        linetype = "solid",
+        color = "blue"
+    ) +
+    geom_vline(
+        data = summaries,
+        aes(xintercept = ci_lower),
+        linetype = "dotdash"
+    ) +
+    geom_vline(
+        data = summaries,
+        aes(xintercept = ci_upper),
+        linetype = "dotdash"
+    ) +
+    scale_x_continuous() +
+
+    theme(legend.position = "none", strip.text = element_text()) +
+    labs(
+        x = "",
+        y = "",
+        title = expression(
+            "Posterior Distributions of " ~ nu ~
+                " with a Half Normal(0,5) prior"
+        ),
+        subtitle = "n = 100"
+    )
+```
+
+```{r}
+#| label: trace_n05_100
+#| echo: false
+#| warning: false
+
+mcmc_plot(hnorm_post_05_100$nu_5, variable = "nu", type = "trace") +
+    labs(
+        title = expression(paste("Traceplot of MCMC Chains for ", nu, " = 5")),
+        subtitle = "Half Normal(0,5) Prior | Sample Size 100"
+    )
+mcmc_plot(hnorm_post_05_100$nu_6, variable = "nu", type = "trace") +
+    labs(
+        title = expression(paste("Traceplot of MCMC Chains for ", nu, " = 6")),
+        subtitle = "Half Normal(0,5) Prior | Sample Size 100"
+    )
+mcmc_plot(hnorm_post_05_100$nu_7, variable = "nu", type = "trace") +
+    labs(
+        title = expression(paste("Traceplot of MCMC Chains for ", nu, " = 7")),
+        subtitle = "Half Normal(0,5) Prior | Sample Size 100"
+    )
+mcmc_plot(hnorm_post_05_100$nu_15, variable = "nu", type = "trace") +
+    labs(
+        title = expression(paste("Traceplot of MCMC Chains for ", nu, " = 15")),
+        subtitle = "Half Normal(0,5) Prior | Sample Size 100"
+    )
+mcmc_plot(hnorm_post_05_100$nu_17, variable = "nu", type = "trace") +
+    labs(
+        title = expression(paste("Traceplot of MCMC Chains for ", nu, " = 17")),
+        subtitle = "Half Normal(0,5) Prior | Sample Size 100"
+    )
+mcmc_plot(hnorm_post_05_100$nu_20, variable = "nu", type = "trace") +
+    labs(
+        title = expression(paste("Traceplot of MCMC Chains for ", nu, " = 20")),
+        subtitle = "Half Normal(0,5) Prior | Sample Size 100"
+    )
+
+```
+
+$Normal^+(0,5)$, Sample size $n=1000$:
+
+```{r}
+#| label: posterior_n05_1000
+#| echo: false
+#| warning: false
+
+hnorm_post_05_1000 <- readRDS("Posteriors/Half_Normal_0_5_1000.rds")
+
+### Getting Posterior Distributions/Traceplots/Summaries
+
+post_summaries_hnorm_05_1000 <- hnorm_post_05_1000 |> map(\(x) summary(x))
+post_nu_hnorm_05_1000 <- hnorm_post_05_1000 |> map(\(x) as_draws_df(x)$nu)
+post_mean_hnorm_05_1000 <- post_nu_hnorm_05_1000 |> map(mean)
+
+#### Posterior histograms
+df <- stack(post_nu_hnorm_05_1000)
+colnames(df) <- c("post", "nu")
+
+summaries <- df |>
+    dplyr::group_by(nu) |>
+    dplyr::summarise(
+        post_mean = mean(post),
+        ci_lower = quantile(post, 0.025),
+        ci_upper = quantile(post, 0.975),
+        true_mean = as.numeric(sub("nu_", "", unique(nu))),
+        .groups = "drop"
+    )
+
+df |>
+    ggplot(aes(x = post, fill = nu)) +
+    geom_histogram(bins = 100, color = "#81818160") +
+    facet_wrap(
+        ~nu,
+        scales = "free_x",
+        labeller = as_labeller(
+            function(x) paste0("nu == ", sub("nu_", "", x)),
+            label_parsed
+        )
+    ) +
+
+    geom_vline(
+        data = lines,
+        aes(xintercept = post_mean),
+        linetype = "dashed",
+        color = "red"
+    ) +
+
+    geom_vline(
+        data = lines,
+        aes(xintercept = true_mean),
+        linetype = "solid",
+        color = "blue"
+    ) +
+    geom_vline(
+        data = summaries,
+        aes(xintercept = ci_lower),
+        linetype = "dotdash"
+    ) +
+    geom_vline(
+        data = summaries,
+        aes(xintercept = ci_upper),
+        linetype = "dotdash"
+    ) +
+    scale_x_continuous() +
+
+    theme(legend.position = "none", strip.text = element_text()) +
+    labs(
+        x = "",
+        y = "",
+        title = expression(
+            "Posterior Distributions of " ~ nu ~
+                " with a Half Normal(0,5) prior"
+        ),
+        subtitle = "n = 1000"
+    )
+```
+
+```{r}
+#| label: trace_n05_1000
+#| echo: false
+#| warning: false
+
+mcmc_plot(hnorm_post_05_1000$nu_5, variable = "nu", type = "trace") +
+    labs(
+        title = expression(paste("Traceplot of MCMC Chains for ", nu, " = 5")),
+        subtitle = "Half Normal(0,5) Prior | Sample Size 1000"
+    )
+ mcmc_plot(hnorm_post_05_1000$nu_6, variable = "nu", type = "trace") +
+    labs(
+        title = expression(paste("Traceplot of MCMC Chains for ", nu, " = 6")),
+        subtitle = "Half Normal(0,5) Prior | Sample Size 1000"
+    )
+mcmc_plot(hnorm_post_05_1000$nu_7, variable = "nu", type = "trace") +
+    labs(
+        title = expression(paste("Traceplot of MCMC Chains for ", nu, " = 7")),
+        subtitle = "Half Normal(0,5) Prior | Sample Size 1000"
+    )
+mcmc_plot(hnorm_post_05_1000$nu_15, variable = "nu", type = "trace") +
+    labs(
+        title = expression(paste("Traceplot of MCMC Chains for ", nu, " = 15")),
+        subtitle = "Half Normal(0,5) Prior | Sample Size 1000"
+    )
+mcmc_plot(hnorm_post_05_1000$nu_17, variable = "nu", type = "trace") +
+    labs(
+        title = expression(paste("Traceplot of MCMC Chains for ", nu, " = 17")),
+        subtitle = "Half Normal(0,5) Prior | Sample Size 1000"
+    )
+mcmc_plot(hnorm_post_05_1000$nu_20, variable = "nu", type = "trace") +
+    labs(
+        title = expression(paste("Traceplot of MCMC Chains for ", nu, " = 20")),
+        subtitle = "Half Normal(0,5) Prior | Sample Size 1000"
+    )
+
+```
+
+$Normal^+(0,5)$, Sample size $n=10000$:
+
+```{r}
+#| label: posterior_n05_10000
+#| echo: false
+#| warning: false
+
+hnorm_post_05_10000 <- readRDS("Posteriors/Half_Normal_0_5_10000.rds")
+
+### Getting Posterior Distributions/Traceplots/Summaries
+
+post_summaries_hnorm_05_10000 <- hnorm_post_05_10000 |> map(\(x) summary(x))
+post_nu_hnorm_05_10000 <- hnorm_post_05_10000 |> map(\(x) as_draws_df(x)$nu)
+post_mean_hnorm_05_10000 <- post_nu_hnorm_05_10000 |> map(mean)
+
+#### Posterior histograms
+df <- stack(post_nu_hnorm_05_10000)
+colnames(df) <- c("post", "nu")
+
+summaries <- df |>
+    dplyr::group_by(nu) |>
+    dplyr::summarise(
+        post_mean = mean(post),
+        ci_lower = quantile(post, 0.025),
+        ci_upper = quantile(post, 0.975),
+        true_mean = as.numeric(sub("nu_", "", unique(nu))),
+        .groups = "drop"
+    )
+
+df |>
+    ggplot(aes(x = post, fill = nu)) +
+    geom_histogram(bins = 100, color = "#81818160") +
+    facet_wrap(
+        ~nu,
+        scales = "free_x",
+        labeller = as_labeller(
+            function(x) paste0("nu == ", sub("nu_", "", x)),
+            label_parsed
+        )
+    ) +
+
+    geom_vline(
+        data = lines,
+        aes(xintercept = post_mean),
+        linetype = "dashed",
+        color = "red"
+    ) +
+
+    geom_vline(
+        data = lines,
+        aes(xintercept = true_mean),
+        linetype = "solid",
+        color = "blue"
+    ) +
+    geom_vline(
+        data = summaries,
+        aes(xintercept = ci_lower),
+        linetype = "dotdash"
+    ) +
+    geom_vline(
+        data = summaries,
+        aes(xintercept = ci_upper),
+        linetype = "dotdash"
+    ) +
+    scale_x_continuous() +
+
+    theme(legend.position = "none", strip.text = element_text()) +
+    labs(
+        x = "",
+        y = "",
+        title = expression(
+            "Posterior Distributions of " ~ nu ~
+                " with a Half Normal(0,5) prior"
+        ),
+        subtitle = "n = 10000"
+    )
+```
+
+```{r}
+#| label: trace_n05_10000
+#| echo: false
+#| warning: false
+
+mcmc_plot(hnorm_post_05_10000$nu_5, variable = "nu", type = "trace") +
+    labs(
+        title = expression(paste("Traceplot of MCMC Chains for ", nu, " = 5")),
+        subtitle = "Half Normal(0,5) Prior | Sample Size 10000"
+    )
+mcmc_plot(hnorm_post_05_10000$nu_6, variable = "nu", type = "trace") +
+    labs(
+        title = expression(paste("Traceplot of MCMC Chains for ", nu, " = 6")),
+        subtitle = "Half Normal(0,5) Prior | Sample Size 10000"
+    )
+mcmc_plot(hnorm_post_05_10000$nu_7, variable = "nu", type = "trace") +
+    labs(
+        title = expression(paste("Traceplot of MCMC Chains for ", nu, " = 7")),
+        subtitle = "Half Normal(0,5) Prior | Sample Size 10000"
+    )
+mcmc_plot(hnorm_post_05_10000$nu_15, variable = "nu", type = "trace") +
+    labs(
+        title = expression(paste("Traceplot of MCMC Chains for ", nu, " = 15")),
+        subtitle = "Half Normal(0,5) Prior | Sample Size 10000"
+    )
+mcmc_plot(hnorm_post_05_10000$nu_17, variable = "nu", type = "trace") +
+    labs(
+        title = expression(paste("Traceplot of MCMC Chains for ", nu, " = 17")),
+        subtitle = "Half Normal(0,5) Prior | Sample Size 10000"
+    )
+mcmc_plot(hnorm_post_05_10000$nu_20, variable = "nu", type = "trace") +
+    labs(
+        title = expression(paste("Traceplot of MCMC Chains for ", nu, " = 20")),
+        subtitle = "Half Normal(0,5) Prior | Sample Size 10000"
+    )
+
+```
+
+$Normal^+(0,10)$, Sample size $n=100$:
+
+```{r}
+#| label: posterior_n010_100
+#| echo: false
+#| warning: false
+
+### reading in posteriors
+hnorm_post_010_100 <- readRDS("Posteriors/Half_Normal_0_10_100.rds")
+
+### Getting Posterior Distributions/Traceplots/Summaries
+
+post_summaries_hnorm_010_100 <- hnorm_post_010_100 |> map(\(x) summary(x))
+post_nu_hnorm_010_100 <- hnorm_post_010_100 |> map(\(x) as_draws_df(x)$nu)
+post_mean_hnorm_010_100 <- post_nu_hnorm_010_100 |> map(mean)
+
+#### Posterior histograms
+df <- stack(post_nu_hnorm_010_100)
+colnames(df) <- c("post", "nu")
+
+summaries <- df |>
+    dplyr::group_by(nu) |>
+    dplyr::summarise(
+        post_mean = mean(post),
+        ci_lower = quantile(post, 0.025),
+        ci_upper = quantile(post, 0.975),
+        true_mean = as.numeric(sub("nu_", "", unique(nu))),
+        .groups = "drop"
+    )
+
+df |>
+    ggplot(aes(x = post, fill = nu)) +
+    geom_histogram(bins = 100, color = "#81818160") +
+    facet_wrap(
+        ~nu,
+        scales = "free_x",
+        labeller = as_labeller(
+            function(x) paste0("nu == ", sub("nu_", "", x)),
+            label_parsed
+        )
+    ) +
+
+    geom_vline(
+        data = lines,
+        aes(xintercept = post_mean),
+        linetype = "dashed",
+        color = "red"
+    ) +
+
+    geom_vline(
+        data = lines,
+        aes(xintercept = true_mean),
+        linetype = "solid",
+        color = "blue"
+    ) +
+    geom_vline(
+        data = summaries,
+        aes(xintercept = ci_lower),
+        linetype = "dotdash"
+    ) +
+    geom_vline(
+        data = summaries,
+        aes(xintercept = ci_upper),
+        linetype = "dotdash"
+    ) +
+    scale_x_continuous() +
+
+    theme(legend.position = "none", strip.text = element_text()) +
+    labs(
+        x = "",
+        y = "",
+        title = expression(
+            "Posterior Distributions of " ~ nu ~
+                " with a Half Normal(0,10) prior"
+        ),
+        subtitle = "n = 100"
+    )
+```
+
+```{r}
+#| label: trace_n010_100
+#| echo: false
+#| warning: false
+
+mcmc_plot(hnorm_post_010_100$nu_5, variable = "nu", type = "trace") +
+    labs(
+        title = expression(paste("Traceplot of MCMC Chains for ", nu, " = 5")),
+        subtitle = "Half Normal(0,10) Prior | Sample Size 100"
+    )
+mcmc_plot(hnorm_post_010_100$nu_6, variable = "nu", type = "trace") +
+    labs(
+        title = expression(paste("Traceplot of MCMC Chains for ", nu, " = 6")),
+        subtitle = "Half Normal(0,10) Prior | Sample Size 100"
+    )
+mcmc_plot(hnorm_post_010_100$nu_7, variable = "nu", type = "trace") +
+    labs(
+        title = expression(paste("Traceplot of MCMC Chains for ", nu, " = 7")),
+        subtitle = "Half Normal(0,10) Prior | Sample Size 100"
+    )
+mcmc_plot(hnorm_post_010_100$nu_15, variable = "nu", type = "trace") +
+    labs(
+        title = expression(paste("Traceplot of MCMC Chains for ", nu, " = 15")),
+        subtitle = "Half Normal(0,10) Prior | Sample Size 100"
+    )
+mcmc_plot(hnorm_post_010_100$nu_17, variable = "nu", type = "trace") +
+    labs(
+        title = expression(paste("Traceplot of MCMC Chains for ", nu, " = 17")),
+        subtitle = "Half Normal(0,10) Prior | Sample Size 100"
+    )
+mcmc_plot(hnorm_post_010_100$nu_20, variable = "nu", type = "trace") +
+    labs(
+        title = expression(paste("Traceplot of MCMC Chains for ", nu, " = 20")),
+        subtitle = "Half Normal(0,10) Prior | Sample Size 100"
+    )
+```
+
+$Normal^+(0,10)$, Sample size $n=1000$:
+
+```{r}
+#| label: posterior_n010_1000
+#| echo: false
+#| warning: false
+
+### reading in posteriors
+hnorm_post_010_1000 <- readRDS("Posteriors/Half_Normal_0_10_1000.rds")
+
+### Getting Posterior Distributions/Traceplots/Summaries
+
+post_summaries_hnorm_010_1000 <- hnorm_post_010_1000 |> map(\(x) summary(x))
+post_nu_hnorm_010_1000 <- hnorm_post_010_1000 |> map(\(x) as_draws_df(x)$nu)
+post_mean_hnorm_010_1000 <- post_nu_hnorm_010_1000 |> map(mean)
+
+#### Posterior histograms
+df <- stack(post_nu_hnorm_010_1000)
+colnames(df) <- c("post", "nu")
+
+summaries <- df |>
+    dplyr::group_by(nu) |>
+    dplyr::summarise(
+        post_mean = mean(post),
+        ci_lower = quantile(post, 0.025),
+        ci_upper = quantile(post, 0.975),
+        true_mean = as.numeric(sub("nu_", "", unique(nu))),
+        .groups = "drop"
+    )
+
+df |>
+    ggplot(aes(x = post, fill = nu)) +
+    geom_histogram(bins = 100, color = "#81818160") +
+    facet_wrap(
+        ~nu,
+        scales = "free_x",
+        labeller = as_labeller(
+            function(x) paste0("nu == ", sub("nu_", "", x)),
+            label_parsed
+        )
+    ) +
+
+    geom_vline(
+        data = lines,
+        aes(xintercept = post_mean),
+        linetype = "dashed",
+        color = "red"
+    ) +
+
+    geom_vline(
+        data = lines,
+        aes(xintercept = true_mean),
+        linetype = "solid",
+        color = "blue"
+    ) +
+    geom_vline(
+        data = summaries,
+        aes(xintercept = ci_lower),
+        linetype = "dotdash"
+    ) +
+    geom_vline(
+        data = summaries,
+        aes(xintercept = ci_upper),
+        linetype = "dotdash"
+    ) +
+    scale_x_continuous() +
+
+    theme(legend.position = "none", strip.text = element_text()) +
+    labs(
+        x = "",
+        y = "",
+        title = expression(
+            "Posterior Distributions of " ~ nu ~
+                " with a Half Normal(0,10) prior"
+        ),
+        subtitle = "n = 1000"
+    )
+```
+
+```{r}
+#| label: trace_n010_1000
+#| echo: false
+#| warning: false
+
+mcmc_plot(hnorm_post_010_1000$nu_5, variable = "nu", type = "trace") +
+    labs(
+        title = expression(paste("Traceplot of MCMC Chains for ", nu, " = 5")),
+        subtitle = "Half Normal(0,10) Prior | Sample Size 1000"
+    )
+mcmc_plot(hnorm_post_010_1000$nu_6, variable = "nu", type = "trace") +
+    labs(
+        title = expression(paste("Traceplot of MCMC Chains for ", nu, " = 6")),
+        subtitle = "Half Normal(0,10) Prior | Sample Size 1000"
+    )
+mcmc_plot(hnorm_post_010_1000$nu_7, variable = "nu", type = "trace") +
+    labs(
+        title = expression(paste("Traceplot of MCMC Chains for ", nu, " = 7")),
+        subtitle = "Half Normal(0,10) Prior | Sample Size 1000"
+    )
+mcmc_plot(hnorm_post_010_1000$nu_15, variable = "nu", type = "trace") +
+    labs(
+        title = expression(paste("Traceplot of MCMC Chains for ", nu, " = 15")),
+        subtitle = "Half Normal(0,10) Prior | Sample Size 1000"
+    )
+mcmc_plot(hnorm_post_010_1000$nu_17, variable = "nu", type = "trace") +
+    labs(
+        title = expression(paste("Traceplot of MCMC Chains for ", nu, " = 17")),
+        subtitle = "Half Normal(0,10) Prior | Sample Size 1000"
+    )
+mcmc_plot(hnorm_post_010_1000$nu_20, variable = "nu", type = "trace") +
+    labs(
+        title = expression(paste("Traceplot of MCMC Chains for ", nu, " = 20")),
+        subtitle = "Half Normal(0,10) Prior | Sample Size 1000"
+    )
+
+```
+
+$Normal^+(0,10)$, Sample size $n=10000$:
+
+```{r}
+#| label: posterior_n010_10000
+#| echo: false
+#| warning: false
+
+### reading in posteriors
+hnorm_post_010_10000 <- readRDS("Posteriors/Half_Normal_0_10_10000.rds")
+
+### Getting Posterior Distributions/Traceplots/Summaries
+
+post_summaries_hnorm_010_10000 <- hnorm_post_010_10000 |> map(\(x) summary(x))
+post_nu_hnorm_010_10000 <- hnorm_post_010_10000 |> map(\(x) as_draws_df(x)$nu)
+post_mean_hnorm_010_10000 <- post_nu_hnorm_010_10000 |> map(mean)
+
+#### Posterior histograms
+df <- stack(post_nu_hnorm_010_10000)
+colnames(df) <- c("post", "nu")
+
+summaries <- df |>
+    dplyr::group_by(nu) |>
+    dplyr::summarise(
+        post_mean = mean(post),
+        ci_lower = quantile(post, 0.025),
+        ci_upper = quantile(post, 0.975),
+        true_mean = as.numeric(sub("nu_", "", unique(nu))),
+        .groups = "drop"
+    )
+
+df |>
+    ggplot(aes(x = post, fill = nu)) +
+    geom_histogram(bins = 100, color = "#81818160") +
+    facet_wrap(
+        ~nu,
+        scales = "free_x",
+        labeller = as_labeller(
+            function(x) paste0("nu == ", sub("nu_", "", x)),
+            label_parsed
+        )
+    ) +
+
+    geom_vline(
+        data = lines,
+        aes(xintercept = post_mean),
+        linetype = "dashed",
+        color = "red"
+    ) +
+
+    geom_vline(
+        data = lines,
+        aes(xintercept = true_mean),
+        linetype = "solid",
+        color = "blue"
+    ) +
+    geom_vline(
+        data = summaries,
+        aes(xintercept = ci_lower),
+        linetype = "dotdash"
+    ) +
+    geom_vline(
+        data = summaries,
+        aes(xintercept = ci_upper),
+        linetype = "dotdash"
+    ) +
+    scale_x_continuous() +
+
+    theme(legend.position = "none", strip.text = element_text()) +
+    labs(
+        x = "",
+        y = "",
+        title = expression(
+            "Posterior Distributions of " ~ nu ~
+                " with a Half Normal(0,10) prior"
+        ),
+        subtitle = "n = 10000"
+    )
+```
+
+```{r}
+#| label: trace_n010_10000
+#| echo: false
+#| warning: false
+
+mcmc_plot(hnorm_post_010_10000$nu_5, variable = "nu", type = "trace") +
+    labs(
+        title = expression(paste("Traceplot of MCMC Chains for ", nu, " = 5")),
+        subtitle = "Half Normal(0,10) Prior | Sample Size 10000"
+    )
+mcmc_plot(hnorm_post_010_10000$nu_6, variable = "nu", type = "trace") +
+    labs(
+        title = expression(paste("Traceplot of MCMC Chains for ", nu, " = 6")),
+        subtitle = "Half Normal(0,10) Prior | Sample Size 10000"
+    )
+mcmc_plot(hnorm_post_010_10000$nu_7, variable = "nu", type = "trace") +
+    labs(
+        title = expression(paste("Traceplot of MCMC Chains for ", nu, " = 7")),
+        subtitle = "Half Normal(0,10) Prior | Sample Size 10000"
+    )
+mcmc_plot(hnorm_post_010_10000$nu_15, variable = "nu", type = "trace") +
+    labs(
+        title = expression(paste("Traceplot of MCMC Chains for ", nu, " = 15")),
+        subtitle = "Half Normal(0,10) Prior | Sample Size 10000"
+    )
+mcmc_plot(hnorm_post_010_10000$nu_17, variable = "nu", type = "trace") +
+    labs(
+        title = expression(paste("Traceplot of MCMC Chains for ", nu, " = 17")),
+        subtitle = "Half Normal(0,10) Prior | Sample Size 10000"
+    )
+mcmc_plot(hnorm_post_010_10000$nu_20, variable = "nu", type = "trace") +
+    labs(
+        title = expression(paste("Traceplot of MCMC Chains for ", nu, " = 20")),
+        subtitle = "Half Normal(0,10) Prior | Sample Size 10000"
+    )
+
+```
+
+$Cauchy^+(0,5)$, Sample size $n=100$:
+
+```{r}
+#| label: posterior_c05_100
+#| echo: false
+#| warning: false
+
+### reading in posteriors
+hcauchy_post_100 <- readRDS("Posteriors/Half_Cauchy_0_5_100.rds")
+
+### Getting Posterior Distributions/Traceplots/Summaries
+
+post_summaries_hcauchy_100 <- hcauchy_post_100 |> map(\(x) summary(x))
+post_nu_hcauchy_100 <- hcauchy_post_100 |> map(\(x) as_draws_df(x)$nu)
+post_mean_hcauchy_100 <- post_nu_hcauchy_100 |> map(mean)
+
+#### Posterior histograms
+df <- stack(post_nu_hcauchy_100)
+colnames(df) <- c("post", "nu")
+
+summaries <- df |>
+    dplyr::group_by(nu) |>
+    dplyr::summarise(
+        post_mean = mean(post),
+        ci_lower = quantile(post, 0.025),
+        ci_upper = quantile(post, 0.975),
+        true_mean = as.numeric(sub("nu_", "", unique(nu))),
+        .groups = "drop"
+    )
+
+df |>
+    ggplot(aes(x = post, fill = nu)) +
+    geom_histogram(bins = 100, color = "#81818160") +
+    facet_wrap(
+        ~nu,
+        scales = "free_x",
+        labeller = as_labeller(
+            function(x) paste0("nu == ", sub("nu_", "", x)),
+            label_parsed
+        )
+    ) +
+
+    geom_vline(
+        data = lines,
+        aes(xintercept = post_mean),
+        linetype = "dashed",
+        color = "red"
+    ) +
+
+    geom_vline(
+        data = lines,
+        aes(xintercept = true_mean),
+        linetype = "solid",
+        color = "blue"
+    ) +
+    geom_vline(
+        data = summaries,
+        aes(xintercept = ci_lower),
+        linetype = "dotdash"
+    ) +
+    geom_vline(
+        data = summaries,
+        aes(xintercept = ci_upper),
+        linetype = "dotdash"
+    ) +
+    scale_x_continuous() +
+
+    theme(legend.position = "none", strip.text = element_text()) +
+    labs(
+        x = "",
+        y = "",
+        title = expression(
+            "Posterior Distributions of " ~ nu ~
+                " with a Half Cauchy(0,5) prior"
+        ),
+        subtitle = "n = 100"
+    )
+```
+
+```{r}
+#| label: trace_c05_100
+#| echo: false
+#| warning: false
+
+#### traceplots:
+
+mcmc_plot(hcauchy_post_100$nu_5, variable = "nu", type = "trace") +
+    labs(
+        title = expression(paste("Traceplot of MCMC Chains for ", nu, " = 5")),
+        subtitle = "Half Cauchy(0,5) Prior | Sample Size 100"
+    )
+mcmc_plot(hcauchy_post_100$nu_6, variable = "nu", type = "trace") +
+    labs(
+        title = expression(paste("Traceplot of MCMC Chains for ", nu, " = 6")),
+        subtitle = "Half Cauchy(0,5) Prior | Sample Size 100"
+    )
+mcmc_plot(hcauchy_post_100$nu_7, variable = "nu", type = "trace") +
+    labs(
+        title = expression(paste("Traceplot of MCMC Chains for ", nu, " = 7")),
+        subtitle = "Half Cauchy(0,5) Prior | Sample Size 100"
+    )
+mcmc_plot(hcauchy_post_100$nu_15, variable = "nu", type = "trace") +
+    labs(
+        title = expression(paste("Traceplot of MCMC Chains for ", nu, " = 15")),
+        subtitle = "Half Cauchy(0,5) Prior | Sample Size 100"
+    )
+mcmc_plot(hcauchy_post_100$nu_17, variable = "nu", type = "trace") +
+    labs(
+        title = expression(paste("Traceplot of MCMC Chains for ", nu, " = 17")),
+        subtitle = "Half Cauchy(0,5) Prior | Sample Size 100"
+    )
+mcmc_plot(hcauchy_post_100$nu_20, variable = "nu", type = "trace") +
+    labs(
+        title = expression(paste("Traceplot of MCMC Chains for ", nu, " = 20")),
+        subtitle = "Half Cauchy(0,5) Prior | Sample Size 100"
+    )
+```
+
+$Cauchy^+(0,5)$, Sample size $n=1000$:
+
+```{r}
+#| label: posterior_c05_1000
+#| echo: false
+#| warning: false
+
+### reading in posteriors
+hcauchy_post_1000 <- readRDS("Posteriors/Half_Cauchy_0_5_1000.rds")
+
+### Getting Posterior Distributions/Traceplots/Summaries
+
+post_summaries_hcauchy_1000 <- hcauchy_post_1000 |> map(\(x) summary(x))
+post_nu_hcauchy_1000 <- hcauchy_post_1000 |> map(\(x) as_draws_df(x)$nu)
+post_mean_hcauchy_1000 <- post_nu_hcauchy_1000 |> map(mean)
+
+#### Posterior histograms
+df <- stack(post_nu_hcauchy_1000)
+colnames(df) <- c("post", "nu")
+
+summaries <- df |>
+    dplyr::group_by(nu) |>
+    dplyr::summarise(
+        post_mean = mean(post),
+        ci_lower = quantile(post, 0.025),
+        ci_upper = quantile(post, 0.975),
+        true_mean = as.numeric(sub("nu_", "", unique(nu))),
+        .groups = "drop"
+    )
+
+df |>
+    ggplot(aes(x = post, fill = nu)) +
+    geom_histogram(bins = 100, color = "#81818160") +
+    facet_wrap(
+        ~nu,
+        scales = "free_x",
+        labeller = as_labeller(
+            function(x) paste0("nu == ", sub("nu_", "", x)),
+            label_parsed
+        )
+    ) +
+
+    geom_vline(
+        data = lines,
+        aes(xintercept = post_mean),
+        linetype = "dashed",
+        color = "red"
+    ) +
+
+    geom_vline(
+        data = lines,
+        aes(xintercept = true_mean),
+        linetype = "solid",
+        color = "blue"
+    ) +
+    geom_vline(
+        data = summaries,
+        aes(xintercept = ci_lower),
+        linetype = "dotdash"
+    ) +
+    geom_vline(
+        data = summaries,
+        aes(xintercept = ci_upper),
+        linetype = "dotdash"
+    ) +
+    scale_x_continuous() +
+
+    theme(legend.position = "none", strip.text = element_text()) +
+    labs(
+        x = "",
+        y = "",
+        title = expression(
+            "Posterior Distributions of " ~ nu ~
+                " with a Half Cauchy(0,5) prior"
+        ),
+        subtitle = "n = 1000"
+    )
+```
+
+```{r}
+#| label: trace_c05_1000
+#| echo: false
+#| warning: false
+
+mcmc_plot(hcauchy_post_1000$nu_5, variable = "nu", type = "trace") +
+    labs(
+        title = expression(paste("Traceplot of MCMC Chains for ", nu, " = 5")),
+        subtitle = "Half Cauchy(0,5) Prior | Sample Size 1000"
+    )
+mcmc_plot(hcauchy_post_1000$nu_6, variable = "nu", type = "trace") +
+    labs(
+        title = expression(paste("Traceplot of MCMC Chains for ", nu, " = 6")),
+        subtitle = "Half Cauchy(0,5) Prior | Sample Size 1000"
+    )
+mcmc_plot(hcauchy_post_1000$nu_7, variable = "nu", type = "trace") +
+    labs(
+        title = expression(paste("Traceplot of MCMC Chains for ", nu, " = 7")),
+        subtitle = "Half Cauchy(0,5) Prior | Sample Size 1000"
+    )
+mcmc_plot(hcauchy_post_1000$nu_15, variable = "nu", type = "trace") +
+    labs(
+        title = expression(paste("Traceplot of MCMC Chains for ", nu, " = 15")),
+        subtitle = "Half Cauchy(0,5) Prior | Sample Size 1000"
+    )
+mcmc_plot(hcauchy_post_1000$nu_17, variable = "nu", type = "trace") +
+    labs(
+        title = expression(paste("Traceplot of MCMC Chains for ", nu, " = 17")),
+        subtitle = "Half Cauchy(0,5) Prior | Sample Size 1000"
+    )
+mcmc_plot(hcauchy_post_1000$nu_20, variable = "nu", type = "trace") +
+    labs(
+        title = expression(paste("Traceplot of MCMC Chains for ", nu, " = 20")),
+        subtitle = "Half Cauchy(0,5) Prior | Sample Size 1000"
+    )
+```
+
+$Cauchy^+(0,5)$, Sample size $n=10000$:
+
+```{r}
+#| label: posterior_c05_10000
+#| echo: false
+#| warning: false
+### reading in posteriors
+hcauchy_post_10000 <- readRDS("Posteriors/Half_Cauchy_0_5_10000.rds")
+
+### Getting Posterior Distributions/Traceplots/Summaries
+
+post_summaries_hcauchy_10000 <- hcauchy_post_10000 |> map(\(x) summary(x))
+post_nu_hcauchy_10000 <- hcauchy_post_10000 |> map(\(x) as_draws_df(x)$nu)
+post_mean_hcauchy_10000 <- post_nu_hcauchy_10000 |> map(mean)
+
+#### Posterior histograms
+df <- stack(post_nu_hcauchy_10000)
+colnames(df) <- c("post", "nu")
+
+summaries <- df |>
+    dplyr::group_by(nu) |>
+    dplyr::summarise(
+        post_mean = mean(post),
+        ci_lower = quantile(post, 0.025),
+        ci_upper = quantile(post, 0.975),
+        true_mean = as.numeric(sub("nu_", "", unique(nu))),
+        .groups = "drop"
+    )
+
+df |>
+    ggplot(aes(x = post, fill = nu)) +
+    geom_histogram(bins = 100, color = "#81818160") +
+    facet_wrap(
+        ~nu,
+        scales = "free_x",
+        labeller = as_labeller(
+            function(x) paste0("nu == ", sub("nu_", "", x)),
+            label_parsed
+        )
+    ) +
+
+    geom_vline(
+        data = lines,
+        aes(xintercept = post_mean),
+        linetype = "dashed",
+        color = "red"
+    ) +
+
+    geom_vline(
+        data = lines,
+        aes(xintercept = true_mean),
+        linetype = "solid",
+        color = "blue"
+    ) +
+    geom_vline(
+        data = summaries,
+        aes(xintercept = ci_lower),
+        linetype = "dotdash"
+    ) +
+    geom_vline(
+        data = summaries,
+        aes(xintercept = ci_upper),
+        linetype = "dotdash"
+    ) +
+    scale_x_continuous() +
+
+    theme(legend.position = "none", strip.text = element_text()) +
+    labs(
+        x = "",
+        y = "",
+        title = expression(
+            "Posterior Distributions of " ~ nu ~
+                " with a Half Cauchy(0,5) prior"
+        ),
+        subtitle = "n = 10000"
+    )
+```
+
+```{r}
+#| label: trace_c05_10000
+#| echo: false
+#| warning: false
+
+mcmc_plot(hcauchy_post_10000$nu_5, variable = "nu", type = "trace") +
+    labs(
+        title = expression(paste("Traceplot of MCMC Chains for ", nu, " = 5")),
+        subtitle = "Half Cauchy(0,5) Prior | Sample Size 10000"
+    )
+mcmc_plot(hcauchy_post_10000$nu_6, variable = "nu", type = "trace") +
+    labs(
+        title = expression(paste("Traceplot of MCMC Chains for ", nu, " = 6")),
+        subtitle = "Half Cauchy(0,5) Prior | Sample Size 10000"
+    )
+mcmc_plot(hcauchy_post_10000$nu_7, variable = "nu", type = "trace") +
+    labs(
+        title = expression(paste("Traceplot of MCMC Chains for ", nu, " = 7")),
+        subtitle = "Half Cauchy(0,5) Prior | Sample Size 10000"
+    )
+mcmc_plot(hcauchy_post_10000$nu_15, variable = "nu", type = "trace") +
+    labs(
+        title = expression(paste("Traceplot of MCMC Chains for ", nu, " = 15")),
+        subtitle = "Half Cauchy(0,5) Prior | Sample Size 10000"
+    )
+mcmc_plot(hcauchy_post_10000$nu_17, variable = "nu", type = "trace") +
+    labs(
+        title = expression(paste("Traceplot of MCMC Chains for ", nu, " = 17")),
+        subtitle = "Half Cauchy(0,5) Prior | Sample Size 10000"
+    )
+mcmc_plot(hcauchy_post_10000$nu_20, variable = "nu", type = "trace") +
+    labs(
+        title = expression(paste("Traceplot of MCMC Chains for ", nu, " = 20")),
+        subtitle = "Half Cauchy(0,5) Prior | Sample Size 10000"
+    )
+```

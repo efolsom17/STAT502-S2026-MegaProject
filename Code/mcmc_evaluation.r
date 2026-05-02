@@ -22,10 +22,12 @@ post_mean_unif_100 <- post_nu_unif_100 |> map(mean)
 df <- stack(post_nu_unif_100)
 colnames(df) <- c("post", "nu")
 
-lines <- df |>
+summaries <- df |>
     dplyr::group_by(nu) |>
     dplyr::summarise(
         post_mean = mean(post),
+        ci_lower = quantile(post, 0.025),
+        ci_upper = quantile(post, 0.975),
         true_mean = as.numeric(sub("nu_", "", unique(nu))),
         .groups = "drop"
     )
@@ -55,8 +57,18 @@ df |>
         linetype = "solid",
         color = "blue"
     ) +
+    geom_vline(
+        data = summaries,
+        aes(xintercept = ci_lower),
+        linetype = "dotdash"
+    ) +
+    geom_vline(
+        data = summaries,
+        aes(xintercept = ci_upper),
+        linetype = "dotdash"
+    ) +
     scale_x_continuous() +
-    theme_minimal() +
+
     theme(legend.position = "none", strip.text = element_text()) +
     labs(
         x = "",
@@ -119,10 +131,12 @@ post_mean_unif_1000 <- post_nu_unif_1000 |> map(mean)
 df <- stack(post_nu_unif_1000)
 colnames(df) <- c("post", "nu")
 
-lines <- df |>
+summaries <- df |>
     dplyr::group_by(nu) |>
     dplyr::summarise(
         post_mean = mean(post),
+        ci_lower = quantile(post, 0.025),
+        ci_upper = quantile(post, 0.975),
         true_mean = as.numeric(sub("nu_", "", unique(nu))),
         .groups = "drop"
     )
@@ -152,8 +166,18 @@ df |>
         linetype = "solid",
         color = "blue"
     ) +
+    geom_vline(
+        data = summaries,
+        aes(xintercept = ci_lower),
+        linetype = "dotdash"
+    ) +
+    geom_vline(
+        data = summaries,
+        aes(xintercept = ci_upper),
+        linetype = "dotdash"
+    ) +
     scale_x_continuous() +
-    theme_minimal() +
+
     theme(legend.position = "none", strip.text = element_text()) +
     labs(
         x = "",
@@ -218,10 +242,12 @@ post_mean_unif_10000 <- post_nu_unif_10000 |> map(mean)
 df <- stack(post_nu_unif_10000)
 colnames(df) <- c("post", "nu")
 
-lines <- df |>
+summaries <- df |>
     dplyr::group_by(nu) |>
     dplyr::summarise(
         post_mean = mean(post),
+        ci_lower = quantile(post, 0.025),
+        ci_upper = quantile(post, 0.975),
         true_mean = as.numeric(sub("nu_", "", unique(nu))),
         .groups = "drop"
     )
@@ -251,9 +277,18 @@ df |>
         linetype = "solid",
         color = "blue"
     ) +
-
+    geom_vline(
+        data = summaries,
+        aes(xintercept = ci_lower),
+        linetype = "dotdash"
+    ) +
+    geom_vline(
+        data = summaries,
+        aes(xintercept = ci_upper),
+        linetype = "dotdash"
+    ) +
     scale_x_continuous() +
-    theme_minimal() +
+
     theme(legend.position = "none", strip.text = element_text()) +
     labs(
         x = "",
@@ -302,7 +337,7 @@ mcmc_plot(uniform_post_10000$nu_20, variable = "nu", type = "trace") +
 
 post_summaries_unif_10000
 
-#---------------- Gamma(1,4) ------------------------ 
+#---------------- Gamma(1,4) ------------------------
 
 ## n = 100
 
@@ -319,10 +354,12 @@ post_mean_gamma_14_100 <- post_nu_gamma_14_100 |> map(mean)
 df <- stack(post_nu_gamma_14_100)
 colnames(df) <- c("post", "nu")
 
-lines <- df |>
+summaries <- df |>
     dplyr::group_by(nu) |>
     dplyr::summarise(
         post_mean = mean(post),
+        ci_lower = quantile(post, 0.025),
+        ci_upper = quantile(post, 0.975),
         true_mean = as.numeric(sub("nu_", "", unique(nu))),
         .groups = "drop"
     )
@@ -352,8 +389,18 @@ df |>
         linetype = "solid",
         color = "blue"
     ) +
+    geom_vline(
+        data = summaries,
+        aes(xintercept = ci_lower),
+        linetype = "dotdash"
+    ) +
+    geom_vline(
+        data = summaries,
+        aes(xintercept = ci_upper),
+        linetype = "dotdash"
+    ) +
     scale_x_continuous() +
-    theme_minimal() +
+
     theme(legend.position = "none", strip.text = element_text()) +
     labs(
         x = "",
@@ -407,7 +454,7 @@ post_summaries_gamma_14_100
 ### reading in posteriors
 gamma_post_14_1000 <- readRDS("Posteriors/Gamma_1_4_1000.rds")
 ### Getting Posterior Distributions/Traceplots/Summaries
-### Getting Posterior Distributions/Traceplots/Summaries
+
 
 post_summaries_gamma_14_1000 <- gamma_post_14_1000 |> map(\(x) summary(x))
 post_nu_gamma_14_1000 <- gamma_post_14_1000 |> map(\(x) as_draws_df(x)$nu)
@@ -417,10 +464,12 @@ post_mean_gamma_14_1000 <- post_nu_gamma_14_1000 |> map(mean)
 df <- stack(post_nu_gamma_14_1000)
 colnames(df) <- c("post", "nu")
 
-lines <- df |>
+summaries <- df |>
     dplyr::group_by(nu) |>
     dplyr::summarise(
         post_mean = mean(post),
+        ci_lower = quantile(post, 0.025),
+        ci_upper = quantile(post, 0.975),
         true_mean = as.numeric(sub("nu_", "", unique(nu))),
         .groups = "drop"
     )
@@ -450,8 +499,18 @@ df |>
         linetype = "solid",
         color = "blue"
     ) +
+    geom_vline(
+        data = summaries,
+        aes(xintercept = ci_lower),
+        linetype = "dotdash"
+    ) +
+    geom_vline(
+        data = summaries,
+        aes(xintercept = ci_upper),
+        linetype = "dotdash"
+    ) +
     scale_x_continuous() +
-    theme_minimal() +
+
     theme(legend.position = "none", strip.text = element_text()) +
     labs(
         x = "",
@@ -516,10 +575,12 @@ post_mean_gamma_14_10000 <- post_nu_gamma_14_10000 |> map(mean)
 df <- stack(post_nu_gamma_14_10000)
 colnames(df) <- c("post", "nu")
 
-lines <- df |>
+summaries <- df |>
     dplyr::group_by(nu) |>
     dplyr::summarise(
         post_mean = mean(post),
+        ci_lower = quantile(post, 0.025),
+        ci_upper = quantile(post, 0.975),
         true_mean = as.numeric(sub("nu_", "", unique(nu))),
         .groups = "drop"
     )
@@ -549,8 +610,18 @@ df |>
         linetype = "solid",
         color = "blue"
     ) +
+    geom_vline(
+        data = summaries,
+        aes(xintercept = ci_lower),
+        linetype = "dotdash"
+    ) +
+    geom_vline(
+        data = summaries,
+        aes(xintercept = ci_upper),
+        linetype = "dotdash"
+    ) +
     scale_x_continuous() +
-    theme_minimal() +
+
     theme(legend.position = "none", strip.text = element_text()) +
     labs(
         x = "",
@@ -608,7 +679,6 @@ gamma_post_155_100 <- readRDS("Posteriors/Gamma_1_5_5_100.rds")
 
 ### Getting Posterior Distributions/Traceplots/Summaries
 
-
 post_summaries_gamma_155_100 <- gamma_post_155_100 |> map(\(x) summary(x))
 post_nu_gamma_155_100 <- gamma_post_155_100 |> map(\(x) as_draws_df(x)$nu)
 post_mean_gamma_155_100 <- post_nu_gamma_155_100 |> map(mean)
@@ -617,10 +687,12 @@ post_mean_gamma_155_100 <- post_nu_gamma_155_100 |> map(mean)
 df <- stack(post_nu_gamma_155_100)
 colnames(df) <- c("post", "nu")
 
-lines <- df |>
+summaries <- df |>
     dplyr::group_by(nu) |>
     dplyr::summarise(
         post_mean = mean(post),
+        ci_lower = quantile(post, 0.025),
+        ci_upper = quantile(post, 0.975),
         true_mean = as.numeric(sub("nu_", "", unique(nu))),
         .groups = "drop"
     )
@@ -650,8 +722,18 @@ df |>
         linetype = "solid",
         color = "blue"
     ) +
+    geom_vline(
+        data = summaries,
+        aes(xintercept = ci_lower),
+        linetype = "dotdash"
+    ) +
+    geom_vline(
+        data = summaries,
+        aes(xintercept = ci_upper),
+        linetype = "dotdash"
+    ) +
     scale_x_continuous() +
-    theme_minimal() +
+
     theme(legend.position = "none", strip.text = element_text()) +
     labs(
         x = "",
@@ -715,10 +797,12 @@ post_mean_gamma_155_1000 <- post_nu_gamma_155_1000 |> map(mean)
 df <- stack(post_nu_gamma_155_1000)
 colnames(df) <- c("post", "nu")
 
-lines <- df |>
+summaries <- df |>
     dplyr::group_by(nu) |>
     dplyr::summarise(
         post_mean = mean(post),
+        ci_lower = quantile(post, 0.025),
+        ci_upper = quantile(post, 0.975),
         true_mean = as.numeric(sub("nu_", "", unique(nu))),
         .groups = "drop"
     )
@@ -748,8 +832,18 @@ df |>
         linetype = "solid",
         color = "blue"
     ) +
+    geom_vline(
+        data = summaries,
+        aes(xintercept = ci_lower),
+        linetype = "dotdash"
+    ) +
+    geom_vline(
+        data = summaries,
+        aes(xintercept = ci_upper),
+        linetype = "dotdash"
+    ) +
     scale_x_continuous() +
-    theme_minimal() +
+
     theme(legend.position = "none", strip.text = element_text()) +
     labs(
         x = "",
@@ -813,10 +907,12 @@ post_mean_gamma_155_10000 <- post_nu_gamma_155_10000 |> map(mean)
 df <- stack(post_nu_gamma_155_10000)
 colnames(df) <- c("post", "nu")
 
-lines <- df |>
+summaries <- df |>
     dplyr::group_by(nu) |>
     dplyr::summarise(
         post_mean = mean(post),
+        ci_lower = quantile(post, 0.025),
+        ci_upper = quantile(post, 0.975),
         true_mean = as.numeric(sub("nu_", "", unique(nu))),
         .groups = "drop"
     )
@@ -846,8 +942,18 @@ df |>
         linetype = "solid",
         color = "blue"
     ) +
+    geom_vline(
+        data = summaries,
+        aes(xintercept = ci_lower),
+        linetype = "dotdash"
+    ) +
+    geom_vline(
+        data = summaries,
+        aes(xintercept = ci_upper),
+        linetype = "dotdash"
+    ) +
     scale_x_continuous() +
-    theme_minimal() +
+
     theme(legend.position = "none", strip.text = element_text()) +
     labs(
         x = "",
@@ -913,10 +1019,12 @@ post_mean_gamma_25_100 <- post_nu_gamma_25_100 |> map(mean)
 df <- stack(post_nu_gamma_25_100)
 colnames(df) <- c("post", "nu")
 
-lines <- df |>
+summaries <- df |>
     dplyr::group_by(nu) |>
     dplyr::summarise(
         post_mean = mean(post),
+        ci_lower = quantile(post, 0.025),
+        ci_upper = quantile(post, 0.975),
         true_mean = as.numeric(sub("nu_", "", unique(nu))),
         .groups = "drop"
     )
@@ -946,8 +1054,18 @@ df |>
         linetype = "solid",
         color = "blue"
     ) +
+    geom_vline(
+        data = summaries,
+        aes(xintercept = ci_lower),
+        linetype = "dotdash"
+    ) +
+    geom_vline(
+        data = summaries,
+        aes(xintercept = ci_upper),
+        linetype = "dotdash"
+    ) +
     scale_x_continuous() +
-    theme_minimal() +
+
     theme(legend.position = "none", strip.text = element_text()) +
     labs(
         x = "",
@@ -1011,10 +1129,12 @@ post_mean_gamma_25_1000 <- post_nu_gamma_25_1000 |> map(mean)
 df <- stack(post_nu_gamma_25_1000)
 colnames(df) <- c("post", "nu")
 
-lines <- df |>
+summaries <- df |>
     dplyr::group_by(nu) |>
     dplyr::summarise(
         post_mean = mean(post),
+        ci_lower = quantile(post, 0.025),
+        ci_upper = quantile(post, 0.975),
         true_mean = as.numeric(sub("nu_", "", unique(nu))),
         .groups = "drop"
     )
@@ -1044,8 +1164,18 @@ df |>
         linetype = "solid",
         color = "blue"
     ) +
+    geom_vline(
+        data = summaries,
+        aes(xintercept = ci_lower),
+        linetype = "dotdash"
+    ) +
+    geom_vline(
+        data = summaries,
+        aes(xintercept = ci_upper),
+        linetype = "dotdash"
+    ) +
     scale_x_continuous() +
-    theme_minimal() +
+
     theme(legend.position = "none", strip.text = element_text()) +
     labs(
         x = "",
@@ -1109,10 +1239,12 @@ post_mean_gamma_25_10000 <- post_nu_gamma_25_10000 |> map(mean)
 df <- stack(post_nu_gamma_25_10000)
 colnames(df) <- c("post", "nu")
 
-lines <- df |>
+summaries <- df |>
     dplyr::group_by(nu) |>
     dplyr::summarise(
         post_mean = mean(post),
+        ci_lower = quantile(post, 0.025),
+        ci_upper = quantile(post, 0.975),
         true_mean = as.numeric(sub("nu_", "", unique(nu))),
         .groups = "drop"
     )
@@ -1142,8 +1274,18 @@ df |>
         linetype = "solid",
         color = "blue"
     ) +
+    geom_vline(
+        data = summaries,
+        aes(xintercept = ci_lower),
+        linetype = "dotdash"
+    ) +
+    geom_vline(
+        data = summaries,
+        aes(xintercept = ci_upper),
+        linetype = "dotdash"
+    ) +
     scale_x_continuous() +
-    theme_minimal() +
+
     theme(legend.position = "none", strip.text = element_text()) +
     labs(
         x = "",
@@ -1209,10 +1351,12 @@ post_mean_hnorm_05_100 <- post_nu_hnorm_05_100 |> map(mean)
 df <- stack(post_nu_hnorm_05_100)
 colnames(df) <- c("post", "nu")
 
-lines <- df |>
+summaries <- df |>
     dplyr::group_by(nu) |>
     dplyr::summarise(
         post_mean = mean(post),
+        ci_lower = quantile(post, 0.025),
+        ci_upper = quantile(post, 0.975),
         true_mean = as.numeric(sub("nu_", "", unique(nu))),
         .groups = "drop"
     )
@@ -1242,8 +1386,18 @@ df |>
         linetype = "solid",
         color = "blue"
     ) +
+    geom_vline(
+        data = summaries,
+        aes(xintercept = ci_lower),
+        linetype = "dotdash"
+    ) +
+    geom_vline(
+        data = summaries,
+        aes(xintercept = ci_upper),
+        linetype = "dotdash"
+    ) +
     scale_x_continuous() +
-    theme_minimal() +
+
     theme(legend.position = "none", strip.text = element_text()) +
     labs(
         x = "",
@@ -1307,10 +1461,12 @@ post_mean_hnorm_05_1000 <- post_nu_hnorm_05_1000 |> map(mean)
 df <- stack(post_nu_hnorm_05_1000)
 colnames(df) <- c("post", "nu")
 
-lines <- df |>
+summaries <- df |>
     dplyr::group_by(nu) |>
     dplyr::summarise(
         post_mean = mean(post),
+        ci_lower = quantile(post, 0.025),
+        ci_upper = quantile(post, 0.975),
         true_mean = as.numeric(sub("nu_", "", unique(nu))),
         .groups = "drop"
     )
@@ -1340,8 +1496,18 @@ df |>
         linetype = "solid",
         color = "blue"
     ) +
+    geom_vline(
+        data = summaries,
+        aes(xintercept = ci_lower),
+        linetype = "dotdash"
+    ) +
+    geom_vline(
+        data = summaries,
+        aes(xintercept = ci_upper),
+        linetype = "dotdash"
+    ) +
     scale_x_continuous() +
-    theme_minimal() +
+
     theme(legend.position = "none", strip.text = element_text()) +
     labs(
         x = "",
@@ -1405,10 +1571,12 @@ post_mean_hnorm_05_10000 <- post_nu_hnorm_05_10000 |> map(mean)
 df <- stack(post_nu_hnorm_05_10000)
 colnames(df) <- c("post", "nu")
 
-lines <- df |>
+summaries <- df |>
     dplyr::group_by(nu) |>
     dplyr::summarise(
         post_mean = mean(post),
+        ci_lower = quantile(post, 0.025),
+        ci_upper = quantile(post, 0.975),
         true_mean = as.numeric(sub("nu_", "", unique(nu))),
         .groups = "drop"
     )
@@ -1438,8 +1606,18 @@ df |>
         linetype = "solid",
         color = "blue"
     ) +
+    geom_vline(
+        data = summaries,
+        aes(xintercept = ci_lower),
+        linetype = "dotdash"
+    ) +
+    geom_vline(
+        data = summaries,
+        aes(xintercept = ci_upper),
+        linetype = "dotdash"
+    ) +
     scale_x_continuous() +
-    theme_minimal() +
+
     theme(legend.position = "none", strip.text = element_text()) +
     labs(
         x = "",
@@ -1505,10 +1683,12 @@ post_mean_hnorm_010_100 <- post_nu_hnorm_010_100 |> map(mean)
 df <- stack(post_nu_hnorm_010_100)
 colnames(df) <- c("post", "nu")
 
-lines <- df |>
+summaries <- df |>
     dplyr::group_by(nu) |>
     dplyr::summarise(
         post_mean = mean(post),
+        ci_lower = quantile(post, 0.025),
+        ci_upper = quantile(post, 0.975),
         true_mean = as.numeric(sub("nu_", "", unique(nu))),
         .groups = "drop"
     )
@@ -1538,8 +1718,18 @@ df |>
         linetype = "solid",
         color = "blue"
     ) +
+    geom_vline(
+        data = summaries,
+        aes(xintercept = ci_lower),
+        linetype = "dotdash"
+    ) +
+    geom_vline(
+        data = summaries,
+        aes(xintercept = ci_upper),
+        linetype = "dotdash"
+    ) +
     scale_x_continuous() +
-    theme_minimal() +
+
     theme(legend.position = "none", strip.text = element_text()) +
     labs(
         x = "",
@@ -1603,10 +1793,12 @@ post_mean_hnorm_010_1000 <- post_nu_hnorm_010_1000 |> map(mean)
 df <- stack(post_nu_hnorm_010_1000)
 colnames(df) <- c("post", "nu")
 
-lines <- df |>
+summaries <- df |>
     dplyr::group_by(nu) |>
     dplyr::summarise(
         post_mean = mean(post),
+        ci_lower = quantile(post, 0.025),
+        ci_upper = quantile(post, 0.975),
         true_mean = as.numeric(sub("nu_", "", unique(nu))),
         .groups = "drop"
     )
@@ -1636,8 +1828,18 @@ df |>
         linetype = "solid",
         color = "blue"
     ) +
+    geom_vline(
+        data = summaries,
+        aes(xintercept = ci_lower),
+        linetype = "dotdash"
+    ) +
+    geom_vline(
+        data = summaries,
+        aes(xintercept = ci_upper),
+        linetype = "dotdash"
+    ) +
     scale_x_continuous() +
-    theme_minimal() +
+
     theme(legend.position = "none", strip.text = element_text()) +
     labs(
         x = "",
@@ -1701,10 +1903,12 @@ post_mean_hnorm_010_10000 <- post_nu_hnorm_010_10000 |> map(mean)
 df <- stack(post_nu_hnorm_010_10000)
 colnames(df) <- c("post", "nu")
 
-lines <- df |>
+summaries <- df |>
     dplyr::group_by(nu) |>
     dplyr::summarise(
         post_mean = mean(post),
+        ci_lower = quantile(post, 0.025),
+        ci_upper = quantile(post, 0.975),
         true_mean = as.numeric(sub("nu_", "", unique(nu))),
         .groups = "drop"
     )
@@ -1734,8 +1938,18 @@ df |>
         linetype = "solid",
         color = "blue"
     ) +
+    geom_vline(
+        data = summaries,
+        aes(xintercept = ci_lower),
+        linetype = "dotdash"
+    ) +
+    geom_vline(
+        data = summaries,
+        aes(xintercept = ci_upper),
+        linetype = "dotdash"
+    ) +
     scale_x_continuous() +
-    theme_minimal() +
+
     theme(legend.position = "none", strip.text = element_text()) +
     labs(
         x = "",
@@ -1801,10 +2015,12 @@ post_mean_hcauchy_100 <- post_nu_hcauchy_100 |> map(mean)
 df <- stack(post_nu_hcauchy_100)
 colnames(df) <- c("post", "nu")
 
-lines <- df |>
+summaries <- df |>
     dplyr::group_by(nu) |>
     dplyr::summarise(
         post_mean = mean(post),
+        ci_lower = quantile(post, 0.025),
+        ci_upper = quantile(post, 0.975),
         true_mean = as.numeric(sub("nu_", "", unique(nu))),
         .groups = "drop"
     )
@@ -1834,8 +2050,18 @@ df |>
         linetype = "solid",
         color = "blue"
     ) +
+    geom_vline(
+        data = summaries,
+        aes(xintercept = ci_lower),
+        linetype = "dotdash"
+    ) +
+    geom_vline(
+        data = summaries,
+        aes(xintercept = ci_upper),
+        linetype = "dotdash"
+    ) +
     scale_x_continuous() +
-    theme_minimal() +
+
     theme(legend.position = "none", strip.text = element_text()) +
     labs(
         x = "",
@@ -1899,10 +2125,12 @@ post_mean_hcauchy_1000 <- post_nu_hcauchy_1000 |> map(mean)
 df <- stack(post_nu_hcauchy_1000)
 colnames(df) <- c("post", "nu")
 
-lines <- df |>
+summaries <- df |>
     dplyr::group_by(nu) |>
     dplyr::summarise(
         post_mean = mean(post),
+        ci_lower = quantile(post, 0.025),
+        ci_upper = quantile(post, 0.975),
         true_mean = as.numeric(sub("nu_", "", unique(nu))),
         .groups = "drop"
     )
@@ -1932,8 +2160,18 @@ df |>
         linetype = "solid",
         color = "blue"
     ) +
+    geom_vline(
+        data = summaries,
+        aes(xintercept = ci_lower),
+        linetype = "dotdash"
+    ) +
+    geom_vline(
+        data = summaries,
+        aes(xintercept = ci_upper),
+        linetype = "dotdash"
+    ) +
     scale_x_continuous() +
-    theme_minimal() +
+
     theme(legend.position = "none", strip.text = element_text()) +
     labs(
         x = "",
@@ -1997,10 +2235,12 @@ post_mean_hcauchy_10000 <- post_nu_hcauchy_10000 |> map(mean)
 df <- stack(post_nu_hcauchy_10000)
 colnames(df) <- c("post", "nu")
 
-lines <- df |>
+summaries <- df |>
     dplyr::group_by(nu) |>
     dplyr::summarise(
         post_mean = mean(post),
+        ci_lower = quantile(post, 0.025),
+        ci_upper = quantile(post, 0.975),
         true_mean = as.numeric(sub("nu_", "", unique(nu))),
         .groups = "drop"
     )
@@ -2030,8 +2270,18 @@ df |>
         linetype = "solid",
         color = "blue"
     ) +
+    geom_vline(
+        data = summaries,
+        aes(xintercept = ci_lower),
+        linetype = "dotdash"
+    ) +
+    geom_vline(
+        data = summaries,
+        aes(xintercept = ci_upper),
+        linetype = "dotdash"
+    ) +
     scale_x_continuous() +
-    theme_minimal() +
+
     theme(legend.position = "none", strip.text = element_text()) +
     labs(
         x = "",

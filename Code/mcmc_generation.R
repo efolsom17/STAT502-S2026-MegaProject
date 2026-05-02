@@ -40,7 +40,7 @@ prior_uniform_1_50 <- prior(uniform(1, 50), class = "nu", lb = 1, ub = 50)
 prior_gamma_1_4 <- prior(gamma(1, 4), class = "nu")
 prior_gamma_15_5 <- prior(gamma(1.5, 5), class = "nu")
 prior_gamma_2_5 <- prior(gamma(2, 5), class = "nu")
-prior_half_normal_5 <- prior(normal(0, 10), class = "nu", lb = 0)
+prior_half_normal_5 <- prior(normal(0, 5), class = "nu", lb = 0)
 prior_half_normal_10 <- prior(normal(0, 10), class = "nu", lb = 0)
 prior_half_cauchy <- prior(cauchy(0, 5), class = "nu", lb = 0)
 
@@ -61,7 +61,7 @@ dat_100 |>
         prior(exponential(1), class = "sigma")
       ),
       warmup = 1000,
-      iter = 11000,
+      iter = 51000,
       chains = 4
     )
   }) |> saveRDS("Posteriors/Unif_1_50_100.rds")
@@ -81,7 +81,7 @@ dat_100 |>
         prior(exponential(1), class = "sigma")
       ),
       warmup = 1000,
-      iter = 11000,
+      iter = 51000,
       chains = 4
     )
   }) |> saveRDS("Posteriors/Gamma_1_4_100.rds")
@@ -101,7 +101,7 @@ dat_100 |>
         prior(exponential(1), class = "sigma")
       ),
       warmup = 1000,
-      iter = 11000,
+      iter = 51000,
       chains = 4
     )
   }) |> saveRDS("Posteriors/Gamma_1_5_5_100.rds")
@@ -121,7 +121,7 @@ dat_100 |>
         prior(exponential(1), class = "sigma")
       ),
       warmup = 1000,
-      iter = 11000,
+      iter = 51000,
       chains = 4
     )
   }) |> saveRDS("Posteriors/Gamma_2_5_100.rds")
@@ -141,7 +141,7 @@ dat_100 |>
         prior(exponential(1), class = "sigma")
       ),
       warmup = 1000,
-      iter = 11000,
+      iter = 51000,
       chains = 4
     )
   }) |> saveRDS("Posteriors/Half_Normal_0_5_100.rds")
@@ -161,7 +161,7 @@ dat_100 |>
         prior(exponential(1), class = "sigma")
       ),
       warmup = 1000,
-      iter = 11000,
+      iter = 51000,
       chains = 4
     )
   }) |> saveRDS( "Posteriors/Half_Normal_0_10_100.rds")
@@ -180,7 +180,7 @@ dat_100 |>
         prior(exponential(1), class = "sigma")
       ),
       warmup = 1000,
-      iter = 11000,
+      iter = 51000,
       chains = 4
     )
   }) |> saveRDS("Posteriors/Half_Cauchy_0_5_100.rds")
@@ -201,7 +201,7 @@ dat_1000 |>
         prior(exponential(1), class = "sigma")
       ),
       warmup = 1000,
-      iter = 11000,
+      iter = 51000,
       chains = 4
     )
   }) |> saveRDS("Posteriors/Unif_1_50_1000.rds")
@@ -221,7 +221,7 @@ dat_1000 |>
         prior(exponential(1), class = "sigma")
       ),
       warmup = 1000,
-      iter = 11000,
+      iter = 51000,
       chains = 4
     )
   }) |> saveRDS("Posteriors/Gamma_1_4_1000.rds")
@@ -241,7 +241,7 @@ dat_1000 |>
         prior(exponential(1), class = "sigma")
       ),
       warmup = 1000,
-      iter = 11000,
+      iter = 51000,
       chains = 4
     )
   }) |> saveRDS("Posteriors/Gamma_1_5_5_1000.rds")
@@ -261,7 +261,7 @@ dat_1000 |>
         prior(exponential(1), class = "sigma")
       ),
       warmup = 1000,
-      iter = 11000,
+      iter = 51000,
       chains = 4
     )
   }) |> saveRDS("Posteriors/Gamma_2_5_1000.rds")
@@ -280,7 +280,7 @@ dat_1000 |>
         prior(exponential(1), class = "sigma")
       ),
       warmup = 1000,
-      iter = 11000,
+      iter = 51000,
       chains = 4
     )
   }) |> saveRDS("Posteriors/Half_Normal_0_5_1000.rds")
@@ -299,7 +299,7 @@ dat_1000 |>
         prior(exponential(1), class = "sigma")
       ),
       warmup = 1000,
-      iter = 11000,
+      iter = 51000,
       chains = 4
     )
   }) |> saveRDS("Posteriors/Half_Normal_0_10_1000.rds")
@@ -319,7 +319,7 @@ dat_1000 |>
         prior(exponential(1), class = "sigma")
       ),
       warmup = 1000,
-      iter = 11000,
+      iter = 51000,
       chains = 4
     )
   }) |> saveRDS("Posteriors/Half_Cauchy_0_5_1000.rds")
@@ -341,7 +341,7 @@ dat_10000 |>
         prior(exponential(1), class = "sigma")
       ),
       warmup = 1000,
-      iter = 11000,
+      iter = 51000,
       chains = 4
     )
   }) |> saveRDS("Posteriors/Unif_1_50_10000.rds")
@@ -361,7 +361,7 @@ dat_10000 |>
         prior(exponential(1), class = "sigma")
       ),
       warmup = 1000,
-      iter = 11000,
+      iter = 51000,
       chains = 4
     )
   }) |> saveRDS("Posteriors/Gamma_1_4_10000.rds")
@@ -381,7 +381,7 @@ dat_10000 |>
         prior(exponential(1), class = "sigma")
       ),
       warmup = 1000,
-      iter = 11000,
+      iter = 51000,
       chains = 4
     )
   }) |> saveRDS("Posteriors/Gamma_1_5_5_10000.rds")
@@ -401,7 +401,7 @@ dat_10000 |>
         prior(exponential(1), class = "sigma")
       ),
       warmup = 1000,
-      iter = 11000,
+      iter = 51000,
       chains = 4
     )
   }) |> saveRDS("Posteriors/Gamma_2_5_10000.rds")
@@ -420,7 +420,7 @@ dat_10000 |>
         prior(exponential(1), class = "sigma")
       ),
       warmup = 1000,
-      iter = 11000,
+      iter = 51000,
       chains = 4
     )
   }) |> saveRDS("Posteriors/Half_Normal_0_5_10000.rds")
@@ -439,7 +439,7 @@ dat_10000 |>
         prior(exponential(1), class = "sigma")
       ),
       warmup = 1000,
-      iter = 11000,
+      iter = 51000,
       chains = 4
     )
   }) |> saveRDS("Posteriors/Half_Normal_0_10_10000.rds")
@@ -458,7 +458,7 @@ dat_10000 |>
         prior(exponential(1), class = "sigma")
       ),
       warmup = 1000,
-      iter = 11000,
+      iter = 51000,
       chains = 4
     )
   }) |> saveRDS("Posteriors/Half_Cauchy_0_5_10000.rds")

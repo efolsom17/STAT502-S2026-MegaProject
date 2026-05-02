@@ -31,19 +31,32 @@ $$
 For our prior for $\nu$ we will try the following:
 
 $$
-p(\nu) \sim \text{Uniform}(0,\theta) \text{with various choices of } \theta
+p(\nu) \sim \text{Uniform}(1,50)
 $$
 
 $$
-p(\nu)\sim N^+(0,\sigma^2) \quad \text{with various choices of } \sigma^2
+p(\nu)\sim \text{Gamma}(1, 4)
 $$
 
 $$
-p(\nu)\sim \text{Gamma}(\alpha, \beta) \text{with various choices of } \alpha \text{ and } \beta
+p(\nu)\sim \text{Gamma}(1.5, 5)
 $$
 
 $$
-p(\nu)\sim \text{Cauchy}^+()
+p(\nu)\sim \text{Gamma}(2, 5)
+$$
+
+
+$$
+p(\nu)\sim N^+(0,5^2)
+$$
+
+$$
+p(\nu)\sim N^+(0,10^2)
+$$
+
+$$
+p(\nu)\sim \text{Cauchy}^+(0,5)
 $$
 
 Thus our model for our posterior, $P(\nu | y_i)$ will be 
@@ -75,20 +88,20 @@ sim_dat <- function(nsims, nu) {
   return(data)
 }
 
-# select 5 different values of nu from 2-25 to simulate data from
-nu <- sample(c(2:25), 5, replace = F) |> sort()
-dat_100000 <- sim_dat(100000, nu) # simulate the data
+# select 6 different values of nu from 2-25 to simulate data from
+nu <- sample(c(2:25), 6, replace = F) |> sort()
 dat_10000 <- sim_dat(10000, nu) # simulate the data
 dat_1000 <- sim_dat(1000, nu) # simulate the data
 dat_100 <- sim_dat(100, nu) # simulate the data
 
 sprintf(
-  "We are trying the following values of nu: %s, %s, %s, %s, %s",
+  "We are trying the following values of nu: %s, %s, %s, %s, %s, %s",
   nu[1],
   nu[2],
   nu[3],
   nu[4],
-  nu[5]
+  nu[5],
+  nu[6]
 )
 ```
 
@@ -100,7 +113,7 @@ prior_uniform_1_50 <- prior(uniform(1, 50), class = "nu", lb = 1, ub = 50)
 prior_gamma_1_4 <- prior(gamma(1, 4), class = "nu")
 prior_gamma_15_5 <- prior(gamma(1.5, 5), class = "nu")
 prior_gamma_2_5 <- prior(gamma(2, 5), class = "nu")
-prior_half_normal_5 <- prior(normal(0, 10), class = "nu", lb = 0)
+prior_half_normal_5 <- prior(normal(0, 5), class = "nu", lb = 0)
 prior_half_normal_10 <- prior(normal(0, 10), class = "nu", lb = 0)
 prior_half_cauchy <- prior(cauchy(0, 5), class = "nu", lb = 0)
 ```
