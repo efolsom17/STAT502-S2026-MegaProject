@@ -35,23 +35,23 @@ bdf <- data.frame(bseq = bseq)
 
 #UNINFORMATIVE
 bdf$up <- dbeta(bdf$bseq, shape1 = 1, shape2 = 1)
-bdf$uninform <- dbeta(bdf$bseq, shape1 = 1 + n.presence, shape2 = 1 + n.total - n.presence)
+bdf$uninform <- dbeta(bdf$bseq, shape1 = n.presence, shape2 = n.total - n.presence)
 
 #I think there'll be some snow this year
 bdf$lp <- dbeta(bdf$bseq, shape1 = 30, shape2 = 15)
-bdf$lsnow <- dbeta(bdf$bseq, shape1 = 8 + n.presence, shape2 = 4 + n.total - n.presence)
+bdf$lsnow <- dbeta(bdf$bseq, shape1 = 29 + n.presence, shape2 = 14 + n.total - n.presence)
 
 #I REALLY think there'll be some snow this year
 bdf$slp <- dbeta(bdf$bseq, shape1 = 300, shape2 = 150)
-bdf$slsnow <- dbeta(bdf$bseq, shape1 = 300 + n.presence, shape2 = 150 + n.total - n.presence)
+bdf$slsnow <- dbeta(bdf$bseq, shape1 = 299 + n.presence, shape2 = 149 + n.total - n.presence)
 
 #I think there'll be less snow this year
 bdf$vlp <- dbeta(bdf$bseq, shape1 = 4, shape2 = 90)
-bdf$vlsnow <- dbeta(bdf$bseq, shape1 = 4 + n.presence, shape2 = 90 + n.total - n.presence)
+bdf$vlsnow <- dbeta(bdf$bseq, shape1 = 3 + n.presence, shape2 = 89 + n.total - n.presence)
 
 #I REALLY think there'll be almost no snow this year
 bdf$sp <- dbeta(bdf$bseq, shape1 = 2, shape2 = 300)
-bdf$ssnow <- dbeta(bdf$bseq, shape1 = 2 + n.presence, shape2 = 300 + n.total - n.presence)
+bdf$ssnow <- dbeta(bdf$bseq, shape1 = 1 + n.presence, shape2 = 299 + n.total - n.presence)
 ```
 
 First: plot priors
