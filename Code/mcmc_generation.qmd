@@ -1,0 +1,788 @@
+---
+title: "MCMC Code for sampling from posterior t distribution"
+author: "Eric Folsom"
+format: pdf
+---
+
+```{r}
+#| label: setup
+#| echo: true
+#| warning: false
+library(tidyverse)
+library(brms)
+library(janitor)
+set.seed(502)
+```
+
+We are trying to create a posterior distribution for the degrees of freedom from a $t$ distribution. We can set up our model as follows:
+
+Our likelihood, or sampling distribution is:
+
+$$
+p(y_i | t) \sim t(\nu)
+$$
+
+
+For our prior we have a couple of choices:
+$$
+p(\nu) \sim \text{Some strictly positive distribution}
+$$
+
+For our prior for $\nu$ we will try the following:
+
+$$
+p(\nu) \sim \text{Uniform}(0,\theta) \text{with various choices of } \theta
+$$
+
+$$
+p(\nu)\sim N^+(0,\sigma^2) \quad \text{with various choices of } \sigma^2
+$$
+
+$$
+p(\nu)\sim \text{Gamma}(\alpha, \beta) \text{with various choices of } \alpha \text{ and } \beta
+$$
+
+$$
+p(\nu)\sim \text{Cauchy}^+()
+$$
+
+Thus our model for our posterior, $P(\nu | y_i)$ will be 
+
+$$
+P(\nu|y_i)\propto p(\mathbf{y} | \nu) p(\nu)
+$$
+
+
+We can generate data from $t$-distributions with various degrees of freedom ($\nu$) as follows:
+
+```{r}
+#| label: simulate_data
+#| echo: true
+#| warning: false
+# function to simulate data from a t-distribution
+
+set.seed(502)
+sim_dat <- function(nsims, nu) {
+  cols <- nu |>
+    map(function(nu) {
+      rt(nsims, nu)
+    })
+
+  names(cols) <- paste0("nu_", nu)
+
+  data <- as.data.frame(cols)
+
+  return(data)
+}
+
+# select 5 different values of nu from 2-25 to simulate data from
+nu <- sample(c(2:25), 5, replace = F) |> sort()
+dat_100000 <- sim_dat(100000, nu) # simulate the data
+dat_10000 <- sim_dat(10000, nu) # simulate the data
+dat_1000 <- sim_dat(1000, nu) # simulate the data
+dat_100 <- sim_dat(100, nu) # simulate the data
+
+sprintf(
+  "We are trying the following values of nu: %s, %s, %s, %s, %s",
+  nu[1],
+  nu[2],
+  nu[3],
+  nu[4],
+  nu[5]
+)
+```
+
+```{r}
+#| label: setup_mcmc
+#| echo: true
+#| warning: false
+prior_uniform_1_50 <- prior(uniform(1, 50), class = "nu", lb = 1, ub = 50)
+prior_gamma_1_4 <- prior(gamma(1, 4), class = "nu")
+prior_gamma_15_5 <- prior(gamma(1.5, 5), class = "nu")
+prior_gamma_2_5 <- prior(gamma(2, 5), class = "nu")
+prior_half_normal_5 <- prior(normal(0, 10), class = "nu", lb = 0)
+prior_half_normal_10 <- prior(normal(0, 10), class = "nu", lb = 0)
+prior_half_cauchy <- prior(cauchy(0, 5), class = "nu", lb = 0)
+```
+
+With our simulated data, with $\nu$'s of $2,3,\ldots, 25$ we can create posterior distributions as follows:
+
+```{r}
+#| label: posterior_estimates_test
+#| echo: true
+#| warning: false
+# fit1 <- brm(
+#   nu_22 ~ 1,
+#   data = dat_100,
+#   family = student(),
+#   prior = c(
+#     prior_uniform_1_50,
+#     prior(exponential(1), class = "sigma")
+#   ),
+#   warmup = 1000,
+#   iter = 11000,
+#   chains = 4
+# )
+
+# post_nu1 <- as_draws_df(fit1)$nu
+# plot(fit1)$nu
+# mean(post_nu1)
+
+# summary(fit1)
+```
+
+Sample size of 100
+
+
+```{r}
+#| label: posterior_draws_unif(1_50)
+#| echo: true
+#| warning: false
+
+set.seed(502)
+fits_uniform_prior_a <- dat_100 |>
+  map(function(x) {
+    temp_data <- data.frame(y = x)
+
+    brm(
+      y ~ 1,
+      data = temp_data,
+      family = student(),
+      prior = c(
+        prior_uniform_1_50,
+        prior(exponential(1), class = "sigma")
+      ),
+      warmup = 1000,
+      iter = 11000,
+      chains = 4
+    )
+  })
+
+# fits_uniform_prior_a |> map(\(x) plot(x))
+# fits_uniform_prior_a |> map(\(x) summary(x))
+
+saveRDS(fits_uniform_prior_a, "Unif_1_50_100.rds")
+```
+
+```{r}
+#| label: posterior_draws_gamma_1a
+#| echo: true
+#| warning: false
+#gamma(1,4)
+set.seed(502)
+fits_gamma_prior_1a <- dat_100 |>
+  map(function(x) {
+    temp_data <- data.frame(y = x)
+
+    brm(
+      y ~ 1,
+      data = temp_data,
+      family = student(),
+      prior = c(
+        prior_gamma_1_4,
+        prior(exponential(1), class = "sigma")
+      ),
+      warmup = 1000,
+      iter = 11000,
+      chains = 4
+    )
+  })
+
+# fits_gamma_prior_1a |> map(\(x) plot(x))
+# fits_gamma_prior_1a |> map(\(x) summary(x))
+
+saveRDS(fits_gamma_prior_1a, "Gamma_1_4_100.rds")
+```
+
+```{r}
+#| label: posterior_draws_gamma_2a
+#| echo: true
+#| warning: false
+#gamma(1.5,5)
+set.seed(502)
+fits_gamma_prior_2a <- dat_100 |>
+  map(function(x) {
+    temp_data <- data.frame(y = x)
+
+    brm(
+      y ~ 1,
+      data = temp_data,
+      family = student(),
+      prior = c(
+        prior_gamma_15_5,
+        prior(exponential(1), class = "sigma")
+      ),
+      warmup = 1000,
+      iter = 11000,
+      chains = 4
+    )
+  })
+
+# fits_gamma_prior_2a |> map(\(x) plot(x))
+# fits_gamma_prior_2a |> map(\(x) summary(x))
+
+saveRDS(fits_gamma_prior_2a, "Gamma_1_5_5_100.rds")
+```
+
+
+```{r}
+#| label: posterior_draws_gamma_3a
+#| echo: true
+#| warning: false
+#gamma(2,5)
+set.seed(502)
+fits_gamma_prior_3a <- dat_100 |>
+  map(function(x) {
+    temp_data <- data.frame(y = x)
+
+    brm(
+      y ~ 1,
+      data = temp_data,
+      family = student(),
+      prior = c(
+        prior_gamma_2_5,
+        prior(exponential(1), class = "sigma")
+      ),
+      warmup = 1000,
+      iter = 11000,
+      chains = 4
+    )
+  })
+# fits_gamma_prior_3a |> map(\(x) plot(x))
+# fits_gamma_prior_3a |> map(\(x) summary(x))
+
+saveRDS(fits_gamma_prior_3a, "Gamma_2_5_100.rds")
+```
+
+```{r}
+#| label: posterior_draws_half_normal_1a
+#| echo: true
+#| warning: false
+
+set.seed(502)
+fits_half_normal_1a <- dat_100 |>
+  map(function(x) {
+    temp_data <- data.frame(y = x)
+
+    brm(
+      y ~ 1,
+      data = temp_data,
+      family = student(),
+      prior = c(
+        prior_half_normal_5,
+        prior(exponential(1), class = "sigma")
+      ),
+      warmup = 1000,
+      iter = 11000,
+      chains = 4
+    )
+  })
+
+# fits_half_normal_1a |> map(\(x) plot(x))
+# fits_half_normal_1a |> map(\(x) summary(x))
+
+saveRDS(fits_half_normal_1a, "Half_Normal_0_5_100.rds")
+```
+
+```{r}
+#| label: posterior_draws_half_normal_2a
+#| echo: true
+#| warning: false
+
+set.seed(502)
+fits_half_normal_2a <- dat_100 |>
+  map(function(x) {
+    temp_data <- data.frame(y = x)
+
+    brm(
+      y ~ 1,
+      data = temp_data,
+      family = student(),
+      prior = c(
+        prior_half_normal_10,
+        prior(exponential(1), class = "sigma")
+      ),
+      warmup = 1000,
+      iter = 11000,
+      chains = 4
+    )
+  })
+
+# fits_half_normal_2a |> map(\(x) plot(x))
+# fits_half_normal_2a |> map(\(x) summary(x))
+
+saveRDS(fits_half_normal_2a, "Half_Normal_0_10_100.rds")
+```
+
+```{r}
+#| label: posterior_draws_half_cauchy_a
+#| echo: true
+#| warning: false
+
+set.seed(502)
+fits_half_cauchy_a <- dat_100 |>
+  map(function(x) {
+    temp_data <- data.frame(y = x)
+
+    brm(
+      y ~ 1,
+      data = temp_data,
+      family = student(),
+      prior = c(
+        prior_half_cauchy,
+        prior(exponential(1), class = "sigma")
+      ),
+      warmup = 1000,
+      iter = 11000,
+      chains = 4
+    )
+  })
+
+# fits_half_cauchy_a |> map(\(x) plot(x))
+# fits_half_cauchy_a |> map(\(x) summary(x))
+
+saveRDS(fits_half_cauchy_a, "Half_Cauchy_0_5_100.rds")
+```
+
+Sample size of 1000
+
+```{r}
+#| label: posterior_draws_unif_b
+#| echo: true
+#| warning: false
+
+set.seed(502)
+fits_uniform_prior_b <- dat_1000 |>
+  map(function(x) {
+    temp_data <- data.frame(y = x)
+
+    brm(
+      y ~ 1,
+      data = temp_data,
+      family = student(),
+      prior = c(
+        prior_uniform_1_50,
+        prior(exponential(1), class = "sigma")
+      ),
+      warmup = 1000,
+      iter = 11000,
+      chains = 4
+    )
+  })
+
+# fits_uniform_prior_b |> map(\(x) plot(x))
+# fits_uniform_prior_b |> map(\(x) summary(x))
+
+saveRDS(fits_uniform_prior_b, "Unif_1_50_1000.rds")
+```
+
+```{r}
+#| label: posterior_draws_gamma_1b
+#| echo: true
+#| warning: false
+#gamma(1,4)
+set.seed(502)
+fits_gamma_prior_1b <- dat_1000 |>
+  map(function(x) {
+    temp_data <- data.frame(y = x)
+
+    brm(
+      y ~ 1,
+      data = temp_data,
+      family = student(),
+      prior = c(
+        prior_gamma_1_4,
+        prior(exponential(1), class = "sigma")
+      ),
+      warmup = 1000,
+      iter = 11000,
+      chains = 4
+    )
+  })
+
+# fits_gamma_prior_1b |> map(\(x) plot(x))
+# fits_gamma_prior_1b |> map(\(x) summary(x))
+
+saveRDS(fits_gamma_prior_1b, "Gamma_1_4_1000.rds")
+```
+
+```{r}
+#| label: posterior_draws_gamma_2b
+#| echo: true
+#| warning: false
+#gamma(1.5,5)
+set.seed(502)
+fits_gamma_prior_2b <- dat_1000 |>
+  map(function(x) {
+    temp_data <- data.frame(y = x)
+
+    brm(
+      y ~ 1,
+      data = temp_data,
+      family = student(),
+      prior = c(
+        prior_gamma_15_5,
+        prior(exponential(1), class = "sigma")
+      ),
+      warmup = 1000,
+      iter = 11000,
+      chains = 4
+    )
+  })
+
+# fits_gamma_prior_2b |> map(\(x) plot(x))
+# fits_gamma_prior_2b |> map(\(x) summary(x))
+
+saveRDS(fits_gamma_prior_2b, "Gamma_1_5_5_1000.rds")
+```
+
+
+```{r}
+#| label: posterior_draws_gamma_3b
+#| echo: true
+#| warning: false
+#gamma(2,5)
+set.seed(502)
+fits_gamma_prior_3b <- dat_1000 |>
+  map(function(x) {
+    temp_data <- data.frame(y = x)
+
+    brm(
+      y ~ 1,
+      data = temp_data,
+      family = student(),
+      prior = c(
+        prior_gamma_2_5,
+        prior(exponential(1), class = "sigma")
+      ),
+      warmup = 1000,
+      iter = 11000,
+      chains = 4
+    )
+  })
+
+# fits_gamma_prior_3b |> map(\(x) plot(x))
+# fits_gamma_prior_3b |> map(\(x) summary(x))
+
+saveRDS(fits_gamma_prior_3b, "Gamma_2_5_1000.rds")
+```
+
+```{r}
+#| label: posterior_draws_half_normal_1b
+#| #| echo: true
+#| warning: false
+
+set.seed(502)
+fits_half_normal_1b <- dat_1000 |>
+  map(function(x) {
+    temp_data <- data.frame(y = x)
+
+    brm(
+      y ~ 1,
+      data = temp_data,
+      family = student(),
+      prior = c(
+        prior_half_normal_5,
+        prior(exponential(1), class = "sigma")
+      ),
+      warmup = 1000,
+      iter = 11000,
+      chains = 4
+    )
+  })
+
+# fits_half_normal_1b |> map(\(x) plot(x))
+# fits_half_normal_1b |> map(\(x) summary(x))
+
+saveRDS(fits_half_normal_1b, "Half_Normal_0_5_1000.rds")
+```
+
+```{r}
+#| label: posterior_draws_half_normal_2b
+#| echo: true
+#| warning: false
+
+set.seed(502)
+fits_half_normal_2b <- dat_1000 |>
+  map(function(x) {
+    temp_data <- data.frame(y = x)
+
+    brm(
+      y ~ 1,
+      data = temp_data,
+      family = student(),
+      prior = c(
+        prior_half_normal_10,
+        prior(exponential(1), class = "sigma")
+      ),
+      warmup = 1000,
+      iter = 11000,
+      chains = 4
+    )
+  })
+
+# fits_half_normal_2b |> map(\(x) plot(x))
+# fits_half_normal_2b |> map(\(x) summary(x))
+
+saveRDS(fits_half_normal_2b, "Half_Normal_0_10_1000.rds")
+```
+
+```{r}
+#| label: posterior_draws_half_cauchy_b
+#| echo: true
+#| warning: false
+
+set.seed(502)
+fits_half_cauchy_b <- dat_1000 |>
+  map(function(x) {
+    temp_data <- data.frame(y = x)
+
+    brm(
+      y ~ 1,
+      data = temp_data,
+      family = student(),
+      prior = c(
+        prior_half_cauchy,
+        prior(exponential(1), class = "sigma")
+      ),
+      warmup = 1000,
+      iter = 11000,
+      chains = 4
+    )
+  })
+
+# fits_half_cauchy_b |> map(\(x) plot(x))
+# fits_half_cauchy_b |> map(\(x) summary(x))
+
+saveRDS(fits_half_cauchy_b, "Half_Cauchy_0_5_1000.rds")
+```
+
+Sample size 10000
+
+```{r}
+#| label: posterior_draws_c
+#| echo: true
+#| warning: false
+
+set.seed(502)
+fits_uniform_prior_c <- dat_10000 |>
+  map(function(x) {
+    temp_data <- data.frame(y = x)
+
+    brm(
+      y ~ 1,
+      data = temp_data,
+      family = student(),
+      prior = c(
+        prior_uniform_1_50,
+        prior(exponential(1), class = "sigma")
+      ),
+      warmup = 1000,
+      iter = 11000,
+      chains = 4
+    )
+  })
+
+# fits_uniform_prior_c |> map(\(x) plot(x))
+# fits_uniform_prior_c |> map(\(x) summary(x))
+
+saveRDS(fits_uniform_prior_c, "Unif_1_50_10000.rds")
+```
+
+```{r}
+#| label: posterior_draws_gamma_1c
+#| echo: true
+#| warning: false
+#gamma(1,4)
+
+set.seed(502)
+fits_gamma_prior_1c <- dat_10000 |>
+  map(function(x) {
+    temp_data <- data.frame(y = x)
+
+    brm(
+      y ~ 1,
+      data = temp_data,
+      family = student(),
+      prior = c(
+        prior_gamma_1_4,
+        prior(exponential(1), class = "sigma")
+      ),
+      warmup = 1000,
+      iter = 11000,
+      chains = 4
+    )
+  })
+
+# fits_gamma_prior_1c |> map(\(x) plot(x))
+# fits_gamma_prior_1c |> map(\(x) summary(x))
+
+saveRDS(fits_gamma_prior_1c, "Gamma_1_4_10000.rds")
+```
+
+```{r}
+#| label: posterior_draws_gamma_2c
+#| echo: true
+#| warning: false
+#gamma(1.5,5)
+
+set.seed(502)
+fits_gamma_prior_2c <- dat_10000 |>
+  map(function(x) {
+    temp_data <- data.frame(y = x)
+
+    brm(
+      y ~ 1,
+      data = temp_data,
+      family = student(),
+      prior = c(
+        prior_gamma_15_5,
+        prior(exponential(1), class = "sigma")
+      ),
+      warmup = 1000,
+      iter = 11000,
+      chains = 4
+    )
+  })
+
+# fits_gamma_prior_2c |> map(\(x) plot(x))
+# fits_gamma_prior_2c |> map(\(x) summary(x))
+
+saveRDS(fits_gamma_prior_2c, "Gamma_1_5_5_10000.rds")
+```
+
+
+```{r}
+#| label: posterior_draws_gamma_3c
+#| echo: true
+#| warning: false
+#gamma(2,5)
+set.seed(502)
+fits_gamma_prior_3c <- dat_10000 |>
+  map(function(x) {
+    temp_data <- data.frame(y = x)
+
+    brm(
+      y ~ 1,
+      data = temp_data,
+      family = student(),
+      prior = c(
+        prior_gamma_2_5,
+        prior(exponential(1), class = "sigma")
+      ),
+      warmup = 1000,
+      iter = 11000,
+      chains = 4
+    )
+  })
+
+# fits_gamma_prior_3c |> map(\(x) plot(x))
+# fits_gamma_prior_3c |> map(\(x) summary(x))
+
+saveRDS(fits_gamma_prior_3c, "Gamma_2_5_10000.rds")
+```
+
+```{r}
+#| label: posterior_draws_half_normal_1c
+#| echo: true
+#| warning: false
+
+set.seed(502)
+fits_half_normal_1c <- dat_10000 |>
+  map(function(x) {
+    temp_data <- data.frame(y = x)
+
+    brm(
+      y ~ 1,
+      data = temp_data,
+      family = student(),
+      prior = c(
+        prior_half_normal_5,
+        prior(exponential(1), class = "sigma")
+      ),
+      warmup = 1000,
+      iter = 11000,
+      chains = 4
+    )
+  })
+
+# fits_half_normal_1c |> map(\(x) plot(x))
+# fits_half_normal_1c |> map(\(x) summary(x))
+
+saveRDS(fits_half_normal_1c, "Half_Normal_0_5_10000.rds")
+```
+
+```{r}
+#| label: posterior_draws_half_normal_2c
+#| echo: true
+#| warning: false
+
+set.seed(502)
+fits_half_normal_2c <- dat_10000 |>
+  map(function(x) {
+    temp_data <- data.frame(y = x)
+
+    brm(
+      y ~ 1,
+      data = temp_data,
+      family = student(),
+      prior = c(
+        prior_half_normal_10,
+        prior(exponential(1), class = "sigma")
+      ),
+      warmup = 1000,
+      iter = 11000,
+      chains = 4
+    )
+  })
+
+# fits_half_normal_2c |> map(\(x) plot(x))
+# fits_half_normal_2c |> map(\(x) summary(x))
+
+saveRDS(fits_half_normal_2c, "Half_Normal_0_10_10000.rds")
+```
+
+```{r}
+#| label: posterior_draws_half_cauchy_c
+#| echo: true
+#| warning: false
+
+set.seed(502)
+fits_half_cauchy_c <- dat_10000 |>
+  map(function(x) {
+    temp_data <- data.frame(y = x)
+
+    brm(
+      y ~ 1,
+      data = temp_data,
+      family = student(),
+      prior = c(
+        prior_half_cauchy,
+        prior(exponential(1), class = "sigma")
+      ),
+      warmup = 1000,
+      iter = 11000,
+      chains = 4
+    )
+  })
+
+# fits_half_cauchy_c |> map(\(x) plot(x))
+# fits_half_cauchy_c |> map(\(x) summary(x))
+
+saveRDS(fits_half_cauchy_c, "Half_Cauchy_0_5_10000.rds")
+```
+
+
+
+```{r}
+#| label: analyzing_dumb_shit
+#| echo: true
+#| eval: false
+
+
+gamma_post_14_100 <- readRDS("Code/Gamma_1_4_100.rds")
+gamma_post_14_1000 <- readRDS("Code/Gamma_1_4_1000.rds")
+gamma_post_14_10000 <- readRDS("Code/Gamma_1_4_10000.rds")
+
+```
+
